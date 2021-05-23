@@ -4,6 +4,7 @@ import numpy as np
 import tensorflow as tf
 from ares.dataset import cifar10, imagenet, dataset_to_iterator
 from ares.model import load_model_from_path
+import json
 
 MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(os.path.dirname(__file__))), "example")
 BATCH_SIZE = 50
@@ -65,7 +66,7 @@ def run_one_model(model_name, attackers, session, output_directory):
         if not os.path.exists(attacker_path):
             os.makedirs(attacker_path)
         with open(os.path.join(attacker_path, f"{model_name}.txt"), 'w') as f:
-            f.write(f"score = {score}\n")
+            f.write(f"{score}\n")
             f.flush()
         
         # with open(os.path.join(output_directory, "{}.csv".format(attack_name)), "a") as f:

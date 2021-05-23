@@ -4,6 +4,8 @@ import os
 import subprocess
 import sys
 import pytorch_lightning as pl
+import json
+import numpy as np
 
 MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(os.path.dirname(__file__))), "example")
 MODELS = [
@@ -48,6 +50,22 @@ def main(args):
         if code != 0:
             sys.exit(code)
 
+    final_eval(os.path.join(output_directory, args.name))
+
+
+def final_eval(path):
+    files = os.listdir(path)
+    result = {}
+    for file in files:
+        file_path = os.path.join(path, file)
+        with open(file_path, 'r') as f:
+            score = f.readline().strip()
+        result[file.split('.')[0]] = float(score)
+        os.remove(file_path)
+    result['avg'] = np.mean(list(result.values())).item()
+    with open(os.path.join(path, 'result.json'), 'w') as f:
+        json.dump(result, f, indent=4, separators=[',', ':'])
+        
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -63,9 +81,15 @@ if __name__ == "__main__":
         default="attacker",
     )
     parser.add_argument(
+        "--name",
+        help="name of attacker, such as pgd, bim",
+        required=True,
+        default="pgd",
+    )
+    parser.add_argument(
         "--output",
         help="output directory, default to the current directory",
-        default=".",
+        default="tmp",
     )
     parser.add_argument(
         "--mute-stderr",
