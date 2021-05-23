@@ -85,9 +85,9 @@ class PGDAttacker(BatchAttack):
             self._session.run(self.config_eps_step, feed_dict={self.eps_ph: eps}) # 初始化
             self._session.run(self.config_alpha_step, feed_dict={self.alpha_ph: eps / 7})
 
-        rand_init_magnitude = (1.0 / 255) * (self.model.x_max - self.model.x_min)
-        rand_init_eps = maybe_to_array(rand_init_magnitude, self.batch_size)
-        self._session.run(self.config_rand_init_eps, feed_dict={self.rand_init_eps_ph: rand_init_eps})
+        # rand_init_magnitude = (1.0 / 255) * (self.model.x_max - self.model.x_min)
+        # rand_init_eps = maybe_to_array(rand_init_magnitude, self.batch_size)
+        # self._session.run(self.config_rand_init_eps, feed_dict={self.rand_init_eps_ph: rand_init_eps})
 
     def batch_attack(self, xs, ys=None, ys_target=None):
         num = 3
@@ -102,7 +102,7 @@ class PGDAttacker(BatchAttack):
                 self._session.run(self.update_xs_adv_step)
             res.append(self._session.run(self.xs_adv_model)) # 返回结果
             loss = self._session.run(self.loss).mean().item()
-            # print(loss)
+            print(loss)
             if loss > loss_max:
                 loss_max = loss
                 best_idx = i
