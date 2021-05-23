@@ -8,6 +8,7 @@ from ares.loss import CrossEntropyLoss
 class BIMAttacker(BatchAttack):
     def __init__(self, model, batch_size, dataset, session):
         ''' Based on ares.attack.bim.BIM '''
+        self.name = 'bim'
         self.model, self.batch_size, self._session = model, batch_size, session
         # dataset == "imagenet" or "cifar10"
         loss = CrossEntropyLoss(self.model) # 定义loss

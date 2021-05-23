@@ -9,6 +9,7 @@ from ares.loss import CrossEntropyLoss
 class PGDAttacker(BatchAttack):
     def __init__(self, model, batch_size, dataset, session):
         ''' Based on ares.attack.bim.BIM '''
+        self.name = 'pgd'
         self.model, self.batch_size, self._session = model, batch_size, session
         # dataset == "imagenet" or "cifar10"
         loss = CrossEntropyLoss(self.model) # 定义loss
@@ -84,7 +85,7 @@ class PGDAttacker(BatchAttack):
             self._session.run(self.config_eps_step, feed_dict={self.eps_ph: eps}) # 初始化
             self._session.run(self.config_alpha_step, feed_dict={self.alpha_ph: eps / 7})
 
-        rand_init_magnitude = (1.0 / 512) * (self.model.x_max - self.model.x_min)
+        rand_init_magnitude = (1.0 / 255) * (self.model.x_max - self.model.x_min)
         rand_init_eps = maybe_to_array(rand_init_magnitude, self.batch_size)
         self._session.run(self.config_rand_init_eps, feed_dict={self.rand_init_eps_ph: rand_init_eps})
 

@@ -3,6 +3,7 @@ import argparse
 import os
 import subprocess
 import sys
+import pytorch_lightning as pl
 
 MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(os.path.dirname(__file__))), "example")
 MODELS = [
@@ -72,5 +73,6 @@ if __name__ == "__main__":
         action="store_true",
         default=False,
     )
+    pl.seed_everything(20210523)
     args = parser.parse_args()
     main(args)
