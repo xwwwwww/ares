@@ -35,7 +35,7 @@ class PGD(BIM):
         # calculate init point within rand_init_eps
         d = np.prod(self.model.x_shape)
         if distance_metric == 'l_inf':
-            noise = uniform_l_inf_nzoise(batch_size, d, self.rand_init_eps_var, self.model.x_dtype)
+            noise = uniform_l_inf_noise(batch_size, d, self.rand_init_eps_var, self.model.x_dtype)
         elif distance_metric == 'l_2':
             noise = uniform_l_2_noise(batch_size, d, self.rand_init_eps_var, self.model.x_dtype)
         else:

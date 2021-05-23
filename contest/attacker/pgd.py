@@ -2,6 +2,7 @@ import numpy as np
 import tensorflow as tf
 from ares.attack.base import BatchAttack
 from ares.attack.utils import get_xs_ph, get_ys_ph, maybe_to_array
+from ares.attack.utils import maybe_to_array, uniform_l_2_noise, uniform_l_inf_noise
 from ares.loss import CrossEntropyLoss
 
 
@@ -11,6 +12,20 @@ class Attacker(BatchAttack):
         self.model, self.batch_size, self._session = model, batch_size, session
         # dataset == "imagenet" or "cifar10"
         loss = CrossEntropyLoss(self.model) # 定义loss
+        
+        
+        # random init magnitude
+        self.rand_init_eps_ph = tf.placeholder(self.model.x_dtype, (self.batch_size,))
+        self.rand_init_eps_var = tf.Variable(tf.zeros((self.batch_size,), dtype=self.model.x_dtype))
+        
+        # calculate init point within rand_init_eps
+        d = np.prod(self.model.x_shape)
+        noise = uniform_l_inf_noise(batch_size, d, self.rand_init_eps_var, self.model.x_dtype)
+        
+        # clip by (x_min, x_max)
+        xs_init = tf.clip_by_value(tf.reshape(self.xs_ph, (self.batch_size, -1)) + noise,
+                                   self.model.x_min, self.model.x_max)
+        
         # placeholder for batch_attack's input
         self.xs_ph = get_xs_ph(model, batch_size)
         self.ys_ph = get_ys_ph(model, batch_size)
@@ -46,11 +61,18 @@ class Attacker(BatchAttack):
         xs_adv_next = tf.clip_by_value(xs_adv_next, self.model.x_min, self.model.x_max)
         
         # 初始化
+
+        # clip by (x_min, x_max)
+        xs_init = tf.clip_by_value(tf.reshape(self.xs_ph, (self.batch_size, -1)) + noise,
+                                   self.model.x_min, self.model.x_max)
+        
         self.update_xs_adv_step = self.xs_adv_var.assign(xs_adv_next) # 用计算出的新值更新
         self.config_eps_step = self.eps_var.assign(self.eps_ph)
         self.config_alpha_step = self.alpha_var.assign(self.alpha_ph)
+        self.config_rand_init_eps = self.rand_init_eps_var.assign(self.rand_init_eps_ph)
+
         self.setup_xs = [self.xs_var.assign(tf.reshape(self.xs_ph, xs_flatten_shape)),
-                         self.xs_adv_var.assign(tf.reshape(self.xs_ph, xs_flatten_shape))]
+                         self.xs_adv_var.assign(xs_init)]
         self.setup_ys = self.ys_var.assign(self.ys_ph)
         self.iteration = 10
 
@@ -60,6 +82,10 @@ class Attacker(BatchAttack):
             eps = maybe_to_array(self.eps, self.batch_size)
             self._session.run(self.config_eps_step, feed_dict={self.eps_ph: eps}) # 初始化
             self._session.run(self.config_alpha_step, feed_dict={self.alpha_ph: eps / 7})
+
+        if 'rand_init_magnitude' in kwargs:
+            rand_init_eps = maybe_to_array(kwargs['rand_init_magnitude'], self.batch_size)
+            self._session.run(self.config_rand_init_eps, feed_dict={self.rand_init_eps_ph: rand_init_eps})
 
     def batch_attack(self, xs, ys=None, ys_target=None):
         self._session.run(self.setup_xs, feed_dict={self.xs_ph: xs}) # 初始化 
