@@ -13,5 +13,6 @@
     "cifar10-at_he":"0.374",
     "cifar10-pre_training":"0.4",
     "cifar10-fast_at":"0.493",
-    "imagenet-free_at":"0.633"
+    "imagenet-free_at":"0.633",
+    "avg": 0.44106666666666666
 }
