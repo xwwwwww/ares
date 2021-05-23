@@ -10,7 +10,7 @@ class Attacker(BatchAttack):
         ''' Based on ares.attack.bim.BIM '''
         self.model, self.batch_size, self._session = model, batch_size, session
         # dataset == "imagenet" or "cifar10"
-        loss = CrossEntropyLoss(self.model)
+        loss = CrossEntropyLoss(self.model) # 定义loss
         # placeholder for batch_attack's input
         self.xs_ph = get_xs_ph(model, batch_size)
         self.ys_ph = get_ys_ph(model, batch_size)
@@ -35,17 +35,18 @@ class Attacker(BatchAttack):
         # calculate loss' gradient with relate to the adversarial example
         # grad.shape == (batch_size, D)
         self.xs_adv_model = tf.reshape(self.xs_adv_var, (batch_size, *self.model.x_shape))
-        self.loss = loss(self.xs_adv_model, self.ys_var)
-        grad = tf.gradients(self.loss, self.xs_adv_var)[0]
+        self.loss = loss(self.xs_adv_model, self.ys_var) # 计算loss
+        grad = tf.gradients(self.loss, self.xs_adv_var)[0] # 得到对xs_adv的梯度
         # update the adversarial example
         xs_lo, xs_hi = self.xs_var - eps, self.xs_var + eps
         grad_sign = tf.sign(grad)
         # clip by max l_inf magnitude of adversarial noise
-        xs_adv_next = tf.clip_by_value(self.xs_adv_var + alpha * grad_sign, xs_lo, xs_hi)
+        xs_adv_next = tf.clip_by_value(self.xs_adv_var + alpha * grad_sign, xs_lo, xs_hi) # 计算新值
         # clip by (x_min, x_max)
         xs_adv_next = tf.clip_by_value(xs_adv_next, self.model.x_min, self.model.x_max)
-
-        self.update_xs_adv_step = self.xs_adv_var.assign(xs_adv_next)
+        
+        # 初始化
+        self.update_xs_adv_step = self.xs_adv_var.assign(xs_adv_next) # 用计算出的新值更新
         self.config_eps_step = self.eps_var.assign(self.eps_ph)
         self.config_alpha_step = self.alpha_var.assign(self.alpha_ph)
         self.setup_xs = [self.xs_var.assign(tf.reshape(self.xs_ph, xs_flatten_shape)),
@@ -57,12 +58,12 @@ class Attacker(BatchAttack):
         if 'magnitude' in kwargs:
             self.eps = kwargs['magnitude'] - 1e-6
             eps = maybe_to_array(self.eps, self.batch_size)
-            self._session.run(self.config_eps_step, feed_dict={self.eps_ph: eps})
+            self._session.run(self.config_eps_step, feed_dict={self.eps_ph: eps}) # 初始化
             self._session.run(self.config_alpha_step, feed_dict={self.alpha_ph: eps / 7})
 
     def batch_attack(self, xs, ys=None, ys_target=None):
-        self._session.run(self.setup_xs, feed_dict={self.xs_ph: xs})
+        self._session.run(self.setup_xs, feed_dict={self.xs_ph: xs}) # 初始化 
         self._session.run(self.setup_ys, feed_dict={self.ys_ph: ys})
-        for _ in range(self.iteration):
+        for _ in range(self.iteration): # 迭代K步
             self._session.run(self.update_xs_adv_step)
-        return self._session.run(self.xs_adv_model)
+        return self._session.run(self.xs_adv_model) # 返回结果
