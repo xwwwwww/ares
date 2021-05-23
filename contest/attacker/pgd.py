@@ -6,7 +6,7 @@ from ares.attack.utils import maybe_to_array, uniform_l_2_noise, uniform_l_inf_n
 from ares.loss import CrossEntropyLoss
 
 
-class Attacker(BatchAttack):
+class PGDAttacker(BatchAttack):
     def __init__(self, model, batch_size, dataset, session):
         ''' Based on ares.attack.bim.BIM '''
         self.model, self.batch_size, self._session = model, batch_size, session

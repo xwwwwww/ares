@@ -5,7 +5,7 @@ from ares.attack.utils import get_xs_ph, get_ys_ph, maybe_to_array
 from ares.loss import CrossEntropyLoss
 
 
-class Attacker(BatchAttack):
+class MIMAttacker(BatchAttack):
     def __init__(self, model, batch_size, dataset, session):
         ''' Based on ares.attack.bim.BIM '''
         self.model, self.batch_size, self._session = model, batch_size, session
