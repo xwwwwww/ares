@@ -1,0 +1,1 @@
+python3 run_attacks.py --attacks attacker --output tmp
