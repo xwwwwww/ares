@@ -47,8 +47,6 @@ def run_one_model(model_name, attackers, session, output_directory):
     xs_ph = tf.placeholder(model.x_dtype, shape=(None, *model.x_shape))
     labels_op = model.labels(xs_ph)
 
-    result = {}
-
     for attack_name, attacker_class in attackers:
         print("Running {} on {}".format(attack_name, model_name))
         attacker = attacker_class(model, BATCH_SIZE, dataset_name, session)
@@ -63,14 +61,14 @@ def run_one_model(model_name, attackers, session, output_directory):
             success_count += np.sum(np.logical_not(np.equal(labels, ys)))
         score = success_count / 1000.0
         print("Score for {} on {}: {}".format(attack_name, model_name, score))
-        result[model_name] = score
 
-    result['avg'] = np.mean(result.values())
-    attacker_path = os.path.join(output_directory, attacker.name)
-    if not os.path.exists(attacker_path):
-        os.makedirs(attacker_path)
-    with open(os.path.join(attacker_path, f"result.json"), 'w') as f:
-        json.dump(result, f, indent=4, separators=[',', ':'])
+        attacker_path = os.path.join(output_directory, attacker.name)
+        if not os.path.exists(attacker_path):
+            os.makedirs(attacker_path)
+        with open(os.path.join(attacker_path, f"{model_name}.txt"), 'w') as f:
+            f.write(f"score = {score}\n")
+            f.flush()
+        
         # with open(os.path.join(output_directory, "{}.csv".format(attack_name)), "a") as f:
         #     f.write("{}, {}, {}\n".format(model_name, attacker.name, score))
         #     f.flush()
