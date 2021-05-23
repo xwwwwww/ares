@@ -66,7 +66,7 @@ def run_one_model(model_name, attackers, session, output_directory):
         if not os.path.exists(attacker_path):
             os.makedirs(attacker_path)
         with open(os.path.join(attacker_path, f"{model_name}.txt"), 'w') as f:
-            f.write(f"score = {score}\n")
+            f.write(f"{score}\n")
             f.flush()
         
         # with open(os.path.join(output_directory, "{}.csv".format(attack_name)), "a") as f:
