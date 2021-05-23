@@ -22,13 +22,14 @@ class PGDAttacker(BatchAttack):
         d = np.prod(self.model.x_shape)
         noise = uniform_l_inf_noise(batch_size, d, self.rand_init_eps_var, self.model.x_dtype)
         
-        # clip by (x_min, x_max)
-        xs_init = tf.clip_by_value(tf.reshape(self.xs_ph, (self.batch_size, -1)) + noise,
-                                   self.model.x_min, self.model.x_max)
-        
         # placeholder for batch_attack's input
         self.xs_ph = get_xs_ph(model, batch_size)
         self.ys_ph = get_ys_ph(model, batch_size)
+        
+        # clip by (x_min, x_max)
+        xs_init = tf.clip_by_value(tf.reshape(self.xs_ph, (self.batch_size, -1)) + noise,
+                                   self.model.x_min, self.model.x_max)
+
         # flatten shape of xs_ph
         xs_flatten_shape = (batch_size, np.prod(self.model.x_shape))
         # store xs and ys in variables to reduce memory copy between tensorflow and python
@@ -83,9 +84,9 @@ class PGDAttacker(BatchAttack):
             self._session.run(self.config_eps_step, feed_dict={self.eps_ph: eps}) # 初始化
             self._session.run(self.config_alpha_step, feed_dict={self.alpha_ph: eps / 7})
 
-        if 'rand_init_magnitude' in kwargs:
-            rand_init_eps = maybe_to_array(kwargs['rand_init_magnitude'], self.batch_size)
-            self._session.run(self.config_rand_init_eps, feed_dict={self.rand_init_eps_ph: rand_init_eps})
+        rand_init_magnitude = (1.0 / 512) * (self.model.x_max - self.model.x_min)
+        rand_init_eps = maybe_to_array(rand_init_magnitude, self.batch_size)
+        self._session.run(self.config_rand_init_eps, feed_dict={self.rand_init_eps_ph: rand_init_eps})
 
     def batch_attack(self, xs, ys=None, ys_target=None):
         self._session.run(self.setup_xs, feed_dict={self.xs_ph: xs}) # 初始化 
