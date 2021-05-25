@@ -11,8 +11,7 @@ class ODIPGDAttacker(BatchAttack):
         ''' Based on ares.attack.bim.BIM '''
         self.name = 'odi-pgd'
         self.model, self.batch_size, self._session = model, batch_size, session
-        # dataset == "imagenet" or "cifar10"
-        # wd
+
         output_dim = 10 if dataset == 'cifar10' else 1000
         wd = uniform_l_inf_noise(batch_size, output_dim, tf.constant([1.]*self.batch_size), self.model.x_dtype)
 
@@ -82,8 +81,8 @@ class ODIPGDAttacker(BatchAttack):
         # 初始化
 
         # clip by (x_min, x_max)
-        xs_init = tf.clip_by_value(tf.reshape(self.xs_ph, (self.batch_size, -1)) + noise,
-                                   self.model.x_min, self.model.x_max)
+        # xs_init = tf.clip_by_value(tf.reshape(self.xs_ph, (self.batch_size, -1)) + noise,
+        #                            self.model.x_min, self.model.x_max)
 
         self.update_xs_adv_step = self.xs_adv_var.assign(xs_adv_next)  # 用计算出的新值更新
         self.update_xs_adv_step_odi = self.xs_adv_var.assign(xs_adv_next_odi)  # 用计算出的新值更新
