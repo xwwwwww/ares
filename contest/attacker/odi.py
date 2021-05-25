@@ -25,6 +25,7 @@ class ODIPGDAttacker(BatchAttack):
         # wd
         output_dim = 10 if dataset == 'cifar10' else 1000
         wd = uniform_l_inf_noise(batch_size, output_dim, 1., self.model.x_dtype)
+        
 
         # placeholder for batch_attack's input
         self.xs_ph = get_xs_ph(model, batch_size)
