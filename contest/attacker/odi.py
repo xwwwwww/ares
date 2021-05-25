@@ -3,7 +3,20 @@ import tensorflow as tf
 from ares.attack.base import BatchAttack
 from ares.attack.utils import get_xs_ph, get_ys_ph, maybe_to_array
 from ares.attack.utils import maybe_to_array, uniform_l_2_noise, uniform_l_inf_noise
-from ares.loss import CrossEntropyLoss, Vods
+from ares.loss import CrossEntropyLoss
+
+class Vods:
+    ''' calculate vods '''
+
+    def __init__(self, model, wd):
+        self.model = model
+        self.wd = wd
+
+    def __call__(self, xs, ys):
+        logits = self.model.logits(xs)
+        vods = tf.matmul(tf.transpose(self.wd), logits)
+        vods = vods / tf.norm(vods, 2)
+        return vods
 
 
 class ODIPGDAttacker(BatchAttack):
@@ -11,8 +24,7 @@ class ODIPGDAttacker(BatchAttack):
         ''' Based on ares.attack.bim.BIM '''
         self.name = 'odi-pgd'
         self.model, self.batch_size, self._session = model, batch_size, session
-        # dataset == "imagenet" or "cifar10"
-        # wd
+
         output_dim = 10 if dataset == 'cifar10' else 1000
         wd = uniform_l_inf_noise(batch_size, output_dim, tf.constant([1.]*self.batch_size), self.model.x_dtype)
 
@@ -82,8 +94,8 @@ class ODIPGDAttacker(BatchAttack):
         # 初始化
 
         # clip by (x_min, x_max)
-        xs_init = tf.clip_by_value(tf.reshape(self.xs_ph, (self.batch_size, -1)) + noise,
-                                   self.model.x_min, self.model.x_max)
+        # xs_init = tf.clip_by_value(tf.reshape(self.xs_ph, (self.batch_size, -1)) + noise,
+        #                            self.model.x_min, self.model.x_max)
 
         self.update_xs_adv_step = self.xs_adv_var.assign(xs_adv_next)  # 用计算出的新值更新
         self.update_xs_adv_step_odi = self.xs_adv_var.assign(xs_adv_next_odi)  # 用计算出的新值更新
