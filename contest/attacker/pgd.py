@@ -76,7 +76,7 @@ class PGDAttacker(BatchAttack):
         self.setup_xs = [self.xs_var.assign(tf.reshape(self.xs_ph, xs_flatten_shape)),
                          self.xs_adv_var.assign(xs_init)]
         self.setup_ys = self.ys_var.assign(self.ys_ph)
-        self.iteration = 15
+        self.iteration = 10
 
     def config(self, **kwargs):
         if 'magnitude' in kwargs:
@@ -86,6 +86,7 @@ class PGDAttacker(BatchAttack):
             self._session.run(self.config_alpha_step, feed_dict={self.alpha_ph: eps / 7})
 
         rand_init_magnitude = (1.0 / 255) * (self.model.x_max - self.model.x_min)
+        # rand_init_magnitude = self.eps
         rand_init_eps = maybe_to_array(rand_init_magnitude, self.batch_size)
         self._session.run(self.config_rand_init_eps, feed_dict={self.rand_init_eps_ph: rand_init_eps})
 

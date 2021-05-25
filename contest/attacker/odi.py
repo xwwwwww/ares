@@ -122,17 +122,18 @@ class ODIPGDAttacker(BatchAttack):
             self._session.run(self.config_alpha_step, feed_dict={self.alpha_ph: eps / 7})
             self._session.run(self.config_alpha_step_odi, feed_dict={self.alpha_ph_odi: eps / 7})
 
-        # rand_init_magnitude = (1.0 / 255) * (self.model.x_max - self.model.x_min)
-        rand_init_magnitude = kwargs['magnitude'] - 1e-6
+        rand_init_magnitude = (1.0 / 255) * (self.model.x_max - self.model.x_min)
+        # rand_init_magnitude = kwargs['magnitude'] - 1e-6
         rand_init_eps = maybe_to_array(rand_init_magnitude, self.batch_size)
         self._session.run(self.config_rand_init_eps, feed_dict={self.rand_init_eps_ph: rand_init_eps})
 
     def batch_attack(self, xs, ys=None, ys_target=None):
         res = []
-        loss_max = -1
+        # loss_max = -1
         best_idx = None
-
+        succ_max = -1
         # odi
+        print("start new attack")
         for i in range(self.Nr):
             # self.__session.run() # 初始化x0和wd
             self._session.run(self.setup_xs, feed_dict={self.xs_ph: xs})  # 初始化
@@ -147,10 +148,18 @@ class ODIPGDAttacker(BatchAttack):
             for _ in range(self.iteration):  # 迭代K步
                 self._session.run(self.update_xs_adv_step)
             res.append(self._session.run(self.xs_adv_model))  # 返回结果
-            loss = self._session.run(self.loss).mean().item()
+            logits = self.model.logits(self.xs_adv_model)
+            preds = tf.argmax(logits, 1)
+            preds = self._session.run(preds)
+            succ = (preds!=ys).sum()
+            print(succ)
+            # loss = self._session.run(self.loss).mean().item()
             # print(loss)
-            if loss > loss_max:
-                loss_max = loss
+            # if loss > loss_max:
+            #     loss_max = loss
+            #     best_idx = i
+            if succ > succ_max:
+                succ_max = succ
                 best_idx = i
 
         return res[best_idx]
