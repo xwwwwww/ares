@@ -79,7 +79,12 @@ class ODIPGDAttacker(BatchAttack):
         self.setup_xs = [self.xs_var.assign(tf.reshape(self.xs_ph, xs_flatten_shape)),
                          self.xs_adv_var.assign(xs_init)]
         self.setup_ys = self.ys_var.assign(self.ys_ph)
+
         self.iteration = 15
+        # odi
+        self.Nr = 1
+        self.Nodi = 2
+        self.step_size = 1e-2
 
     def config(self, **kwargs):
         if 'magnitude' in kwargs:
@@ -99,6 +104,14 @@ class ODIPGDAttacker(BatchAttack):
         loss_max = -1
         best_idx = None
 
+        # odi
+        for i in range(self.Nr):
+            # self.__session.run() # 初始化x0和wd
+            for k in range(self.Nodi):
+                # self.__session.run() # 参考pgd的update
+                pass
+        
+        # pgd
         for i in range(num):
             self._session.run(self.setup_xs, feed_dict={self.xs_ph: xs})  # 初始化
             self._session.run(self.setup_ys, feed_dict={self.ys_ph: ys})
