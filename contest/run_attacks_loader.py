@@ -7,7 +7,7 @@ from ares.model import load_model_from_path
 import json
 
 MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(os.path.dirname(__file__))), "example")
-BATCH_SIZE = 50
+BATCH_SIZE = 256
 
 
 def main(args):

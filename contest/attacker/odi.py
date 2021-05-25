@@ -98,7 +98,7 @@ class ODIPGDAttacker(BatchAttack):
 
         self.iteration = 10
         # odi
-        self.Nr = 5
+        self.Nr = 10
         self.Nodi = 2
         # self.step_size = 1e-2
 
