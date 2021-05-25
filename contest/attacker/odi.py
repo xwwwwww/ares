@@ -3,7 +3,7 @@ import tensorflow as tf
 from ares.attack.base import BatchAttack
 from ares.attack.utils import get_xs_ph, get_ys_ph, maybe_to_array
 from ares.attack.utils import maybe_to_array, uniform_l_2_noise, uniform_l_inf_noise
-from ares.loss import CrossEntropyLoss
+from ares.loss import CrossEntropyLoss, CWLoss
 
 class Vods:
     ''' calculate vods '''
@@ -28,7 +28,7 @@ class ODIPGDAttacker(BatchAttack):
         output_dim = 10 if dataset == 'cifar10' else 1000
         wd = uniform_l_inf_noise(batch_size, output_dim, tf.constant([1.]*self.batch_size), self.model.x_dtype)
 
-        loss = CrossEntropyLoss(self.model)  # 定义loss
+        loss = CWLoss(self.model, wd)  # 定义loss
         loss_odi = Vods(self.model, wd)
         # random init magnitude
         self.rand_init_eps_ph = tf.placeholder(self.model.x_dtype, (self.batch_size,))
@@ -133,7 +133,7 @@ class ODIPGDAttacker(BatchAttack):
         best_idx = None
         succ_max = -1
         # odi
-        print("start new attack")
+        # print("start new attack")
         for i in range(self.Nr):
             # self.__session.run() # 初始化x0和wd
             self._session.run(self.setup_xs, feed_dict={self.xs_ph: xs})  # 初始化
@@ -152,7 +152,7 @@ class ODIPGDAttacker(BatchAttack):
             preds = tf.argmax(logits, 1)
             preds = self._session.run(preds)
             succ = (preds!=ys).sum()
-            print(succ)
+            # print(succ)
             # loss = self._session.run(self.loss).mean().item()
             # print(loss)
             # if loss > loss_max:

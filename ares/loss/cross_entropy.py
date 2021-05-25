@@ -18,23 +18,6 @@ class CrossEntropyLoss(Loss):
         loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=ys, logits=logits)
         return loss
 
-class Vods(Loss):
-    ''' Cross entropy loss. '''
-
-    def __init__(self, model, wd):
-        ''' Initialize CrossEntropyLoss.
-
-        :param model: An instance of ``ClassifierWithLogits``.
-        '''
-        self.model = model
-        self.wd = wd
-
-    def __call__(self, xs, ys):
-        logits = self.model.logits(xs)
-        vods = tf.matmul(tf.transpose(self.wd), logits)
-        # loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=ys, logits=logits)
-        return vods
-
 class EnsembleCrossEntropyLoss(Loss):
     ''' Ensemble multiple models' cross entropy loss. '''
 

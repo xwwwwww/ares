@@ -1,5 +1,5 @@
 from ares.loss.base import Loss
-from ares.loss.cross_entropy import CrossEntropyLoss, EnsembleCrossEntropyLoss, EnsembleRandomnessCrossEntropyLoss, Vods
+from ares.loss.cross_entropy import CrossEntropyLoss, EnsembleCrossEntropyLoss, EnsembleRandomnessCrossEntropyLoss
 from ares.loss.cw import CWLoss, EnsembleCWLoss, EnsembleRandomnessCWLoss
 
 __all__ = [
