@@ -14,8 +14,8 @@ class ODIPGDAttacker(BatchAttack):
         # dataset == "imagenet" or "cifar10"
         # wd
         output_dim = 10 if dataset == 'cifar10' else 1000
-        wd = uniform_l_inf_noise(batch_size, output_dim, 1., self.model.x_dtype)
-        
+        wd = uniform_l_inf_noise(batch_size, output_dim, tf.constant([1.]*self.batch_size), self.model.x_dtype)
+
         loss = CrossEntropyLoss(self.model)  # 定义loss
         loss_odi = Vods(self.model, wd)
         # random init magnitude
@@ -25,8 +25,6 @@ class ODIPGDAttacker(BatchAttack):
         # calculate init point within rand_init_eps
         d = np.prod(self.model.x_shape)
         noise = uniform_l_inf_noise(batch_size, d, self.rand_init_eps_var, self.model.x_dtype)
-
-        
 
         # placeholder for batch_attack's input
         self.xs_ph = get_xs_ph(model, batch_size)
@@ -98,11 +96,11 @@ class ODIPGDAttacker(BatchAttack):
                          self.xs_adv_var.assign(xs_init)]
         self.setup_ys = self.ys_var.assign(self.ys_ph)
 
-        self.iteration = 15
+        self.iteration = 10
         # odi
-        self.Nr = 1
+        self.Nr = 5
         self.Nodi = 2
-        self.step_size = 1e-2
+        # self.step_size = 1e-2
 
     def config(self, **kwargs):
         if 'magnitude' in kwargs:
@@ -111,7 +109,6 @@ class ODIPGDAttacker(BatchAttack):
             self._session.run(self.config_eps_step, feed_dict={self.eps_ph: eps})  # 初始化
             self._session.run(self.config_alpha_step, feed_dict={self.alpha_ph: eps / 7})
             self._session.run(self.config_alpha_step_odi, feed_dict={self.alpha_ph_odi: eps / 7})
-
 
         # rand_init_magnitude = (1.0 / 255) * (self.model.x_max - self.model.x_min)
         rand_init_magnitude = kwargs['magnitude'] - 1e-6
@@ -132,15 +129,14 @@ class ODIPGDAttacker(BatchAttack):
             for k in range(self.Nodi):
                 # self.__session.run() # 参考pgd的update
                 self._session.run(self.update_xs_adv_step_odi)
-        
+
             # pgd
-            
-            
+
             for _ in range(self.iteration):  # 迭代K步
                 self._session.run(self.update_xs_adv_step)
             res.append(self._session.run(self.xs_adv_model))  # 返回结果
             loss = self._session.run(self.loss).mean().item()
-            print(loss)
+            # print(loss)
             if loss > loss_max:
                 loss_max = loss
                 best_idx = i
