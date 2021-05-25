@@ -3,7 +3,7 @@ import tensorflow as tf
 from ares.attack.base import BatchAttack
 from ares.attack.utils import get_xs_ph, get_ys_ph, maybe_to_array
 from ares.attack.utils import maybe_to_array, uniform_l_2_noise, uniform_l_inf_noise
-from ares.loss import CrossEntropyLoss
+from ares.loss import CrossEntropyLoss, Vods
 
 
 class ODIPGDAttacker(BatchAttack):
@@ -12,8 +12,12 @@ class ODIPGDAttacker(BatchAttack):
         self.name = 'odi-pgd'
         self.model, self.batch_size, self._session = model, batch_size, session
         # dataset == "imagenet" or "cifar10"
+        # wd
+        output_dim = 10 if dataset == 'cifar10' else 1000
+        wd = uniform_l_inf_noise(batch_size, output_dim, 1., self.model.x_dtype)
+        
         loss = CrossEntropyLoss(self.model)  # 定义loss
-
+        loss_odi = Vods(self.model, wd)
         # random init magnitude
         self.rand_init_eps_ph = tf.placeholder(self.model.x_dtype, (self.batch_size,))
         self.rand_init_eps_var = tf.Variable(tf.zeros((self.batch_size,), dtype=self.model.x_dtype))
@@ -22,9 +26,6 @@ class ODIPGDAttacker(BatchAttack):
         d = np.prod(self.model.x_shape)
         noise = uniform_l_inf_noise(batch_size, d, self.rand_init_eps_var, self.model.x_dtype)
 
-        # wd
-        output_dim = 10 if dataset == 'cifar10' else 1000
-        wd = uniform_l_inf_noise(batch_size, output_dim, 1., self.model.x_dtype)
         
 
         # placeholder for batch_attack's input
@@ -71,7 +72,7 @@ class ODIPGDAttacker(BatchAttack):
         xs_adv_next = tf.clip_by_value(xs_adv_next, self.model.x_min, self.model.x_max)
 
         # odi gradient
-        self.odi_loss = None
+        self.odi_loss = loss_odi(self.xs_adv_model, self.ys_var)
         grad_odi = tf.gradients(self.odi_loss, self.xs_adv_var)[0]  # 得到对xs_adv的梯度
         # update the adversarial example
         grad_sign_odi = tf.sign(grad_odi)
@@ -90,6 +91,7 @@ class ODIPGDAttacker(BatchAttack):
         self.update_xs_adv_step_odi = self.xs_adv_var.assign(xs_adv_next_odi)  # 用计算出的新值更新
         self.config_eps_step = self.eps_var.assign(self.eps_ph)
         self.config_alpha_step = self.alpha_var.assign(self.alpha_ph)
+        self.config_alpha_step_odi = self.alpha_var_odi.assign(self.alpha_ph_odi)
         self.config_rand_init_eps = self.rand_init_eps_var.assign(self.rand_init_eps_ph)
 
         self.setup_xs = [self.xs_var.assign(tf.reshape(self.xs_ph, xs_flatten_shape)),
@@ -108,6 +110,8 @@ class ODIPGDAttacker(BatchAttack):
             eps = maybe_to_array(self.eps, self.batch_size)
             self._session.run(self.config_eps_step, feed_dict={self.eps_ph: eps})  # 初始化
             self._session.run(self.config_alpha_step, feed_dict={self.alpha_ph: eps / 7})
+            self._session.run(self.config_alpha_step_odi, feed_dict={self.alpha_ph_odi: eps / 7})
+
 
         # rand_init_magnitude = (1.0 / 255) * (self.model.x_max - self.model.x_min)
         rand_init_magnitude = kwargs['magnitude'] - 1e-6
@@ -127,7 +131,7 @@ class ODIPGDAttacker(BatchAttack):
 
             for k in range(self.Nodi):
                 # self.__session.run() # 参考pgd的update
-                pass
+                self._session.run(self.update_xs_adv_step_odi)
         
             # pgd
             
