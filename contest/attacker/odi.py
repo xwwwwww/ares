@@ -49,9 +49,13 @@ class ODIPGDAttacker(BatchAttack):
         # step size
         self.alpha_ph = tf.placeholder(self.model.x_dtype, (self.batch_size,))
         self.alpha_var = tf.Variable(tf.zeros((self.batch_size,), dtype=self.model.x_dtype))
+        # odi step size
+        self.alpha_ph_odi = tf.placeholder(self.model.x_dtype, (self.batch_size,))
+        self.alpha_var_odi = tf.Variable(tf.zeros((self.batch_size,), dtype=self.model.x_dtype))
         # expand dim for easier broadcast operations
         eps = tf.expand_dims(self.eps_var, 1)
         alpha = tf.expand_dims(self.alpha_var, 1)
+        alpha_odi = tf.expand_dims(self.alpha_var_odi, 1)
         # calculate loss' gradient with relate to the adversarial example
         # grad.shape == (batch_size, D)
         self.xs_adv_model = tf.reshape(self.xs_adv_var, (batch_size, *self.model.x_shape))
@@ -65,6 +69,16 @@ class ODIPGDAttacker(BatchAttack):
         # clip by (x_min, x_max)
         xs_adv_next = tf.clip_by_value(xs_adv_next, self.model.x_min, self.model.x_max)
 
+        # odi gradient
+        self.odi_loss = None
+        grad_odi = tf.gradients(self.odi_loss, self.xs_adv_var)[0]  # 得到对xs_adv的梯度
+        # update the adversarial example
+        grad_sign_odi = tf.sign(grad_odi)
+        # clip by max l_inf magnitude of adversarial noise
+        xs_adv_next_odi = tf.clip_by_value(self.xs_adv_var + alpha_odi * grad_sign_odi, xs_lo, xs_hi)  # 计算新值
+        # clip by (x_min, x_max)
+        xs_adv_next_odi = tf.clip_by_value(xs_adv_next_odi, self.model.x_min, self.model.x_max)
+
         # 初始化
 
         # clip by (x_min, x_max)
@@ -72,6 +86,7 @@ class ODIPGDAttacker(BatchAttack):
                                    self.model.x_min, self.model.x_max)
 
         self.update_xs_adv_step = self.xs_adv_var.assign(xs_adv_next)  # 用计算出的新值更新
+        self.update_xs_adv_step_odi = self.xs_adv_var.assign(xs_adv_next_odi)  # 用计算出的新值更新
         self.config_eps_step = self.eps_var.assign(self.eps_ph)
         self.config_alpha_step = self.alpha_var.assign(self.alpha_ph)
         self.config_rand_init_eps = self.rand_init_eps_var.assign(self.rand_init_eps_ph)
@@ -99,7 +114,6 @@ class ODIPGDAttacker(BatchAttack):
         self._session.run(self.config_rand_init_eps, feed_dict={self.rand_init_eps_ph: rand_init_eps})
 
     def batch_attack(self, xs, ys=None, ys_target=None):
-        num = 3
         res = []
         loss_max = -1
         best_idx = None
@@ -107,14 +121,16 @@ class ODIPGDAttacker(BatchAttack):
         # odi
         for i in range(self.Nr):
             # self.__session.run() # 初始化x0和wd
+            self._session.run(self.setup_xs, feed_dict={self.xs_ph: xs})  # 初始化
+            self._session.run(self.setup_ys, feed_dict={self.ys_ph: ys})
+
             for k in range(self.Nodi):
                 # self.__session.run() # 参考pgd的update
                 pass
         
-        # pgd
-        for i in range(num):
-            self._session.run(self.setup_xs, feed_dict={self.xs_ph: xs})  # 初始化
-            self._session.run(self.setup_ys, feed_dict={self.ys_ph: ys})
+            # pgd
+            
+            
             for _ in range(self.iteration):  # 迭代K步
                 self._session.run(self.update_xs_adv_step)
             res.append(self._session.run(self.xs_adv_model))  # 返回结果
@@ -123,4 +139,5 @@ class ODIPGDAttacker(BatchAttack):
             if loss > loss_max:
                 loss_max = loss
                 best_idx = i
+
         return res[best_idx]
