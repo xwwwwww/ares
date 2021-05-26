@@ -151,7 +151,7 @@ class ODIPGDAttacker(BatchAttack):
 
             for j in range(self.iteration):  # 迭代K步
                 if j == int(self.iteration / 3) or j == int(self.iteration * (2 / 3)):
-                    self.__session.run(self.update_alpha)
+                    self._session.run(self.update_alpha)
                 self._session.run(self.update_xs_adv_step)
             res.append(self._session.run(self.xs_adv_model))  # 返回结果
             logits = self.model.logits(self.xs_adv_model)
