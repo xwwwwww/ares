@@ -109,11 +109,13 @@ class ODIPGDAttacker(BatchAttack):
                          self.xs_adv_var.assign(xs_init)]
         self.setup_ys = self.ys_var.assign(self.ys_ph)
 
-        self.iteration = 10
+        self.iteration = 100
         # odi
         self.Nr = 10
         self.Nodi = 2
         # self.step_size = 1e-2
+
+        print('iteration = ', self.iteration)
 
     def config(self, **kwargs):
         if 'magnitude' in kwargs:
