@@ -57,6 +57,8 @@ def final_eval(path):
     files = os.listdir(path)
     result = {}
     for file in files:
+        if file.endswith('.json'):
+            continue
         file_path = os.path.join(path, file)
         with open(file_path, 'r') as f:
             score = f.readline().strip()
