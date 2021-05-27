@@ -139,6 +139,9 @@ class ODIPGDAttacker(BatchAttack):
         # odi
         # print("start new attack")
         for i in range(self.Nr):
+            # 复原alpha
+            eps = maybe_to_array(self.eps, self.batch_size)
+            self._session.run(self.config_alpha_step, feed_dict={self.alpha_ph: eps / 7})
             # self.__session.run() # 初始化x0和wd
             self._session.run(self.setup_xs, feed_dict={self.xs_ph: xs})  # 初始化
             self._session.run(self.setup_ys, feed_dict={self.ys_ph: ys})

@@ -63,7 +63,7 @@ def final_eval(path):
         with open(file_path, 'r') as f:
             score = f.readline().strip()
         result[file.split('.')[0]] = float(score)
-        os.remove(file_path)
+        # os.remove(file_path)
     result['avg'] = np.mean(list(result.values())).item()
     with open(os.path.join(path, 'result.json'), 'w') as f:
         json.dump(result, f, indent=4, separators=[',', ':'])
