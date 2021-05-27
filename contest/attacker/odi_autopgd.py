@@ -191,19 +191,14 @@ class ODIAutoPGDAttacker(BatchAttack):
                 self._session.run(op)
                 fcnt += 1
 
-            xlast = tf.Variable(self.xs_adv_var)
-            op = xlast.assign(x0)
-            self._session.run(op)
-
-            alpha_last = tf.Variable(self.alpha_var)
-            op = alpha_last.assign(self.alpha_var)
-            self._session.run(op)
             fmax_last = tf.Variable(fmax)
 
+            xlast = tf.Variable(self.xs_adv_var)
+            alpha_last = tf.Variable(self.alpha_var)
             flast = tf.Variable(fmax)
-            op = flast.assign(f1)
-            self._session.run(op)
+            op = [xlast.assign(x0), alpha_last.assign(self.alpha_var), flast.assign(f1)]
 
+            self._session.run(op)
             wlast = 0
             # print(type(fmax))
             print(f"{i} in odi")
