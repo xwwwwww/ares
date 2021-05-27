@@ -251,7 +251,10 @@ class ODIAutoPGDAttacker(BatchAttack):
                 if k % 20 == 0:
                     print(k)
 
-            res.append(self._session.run(self.xs_adv_model))  # 返回结果
+            xs_adv = self._session.run(self.xs_adv_model).astype(np.float32)
+            res.append(xs_adv)  # 返回结果
+            # xs_adv = np.clip(xs_adv, xs - self.eps * (self.model.x_max - self.model.x_min), xs + self.eps * (self.model.x_max - self.model.x_min))
+            # xs_adv = np.clip(xs_adv, self.model.x_min, self.model.x_max)
             logits = self.model.logits(self.xs_adv_model)
             preds = tf.argmax(logits, 1)
             preds = self._session.run(preds)
