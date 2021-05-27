@@ -83,9 +83,9 @@ class ODIPGDAttacker(BatchAttack):
         xs_lo, xs_hi = self.xs_var - eps, self.xs_var + eps
         grad_sign = tf.sign(grad)
         # clip by max l_inf magnitude of adversarial noise
-        xs_adv_next = tf.clip_by_value(self.xs_adv_var + alpha * grad_sign, xs_lo, xs_hi)  # 计算新值
+        self.xs_adv_next = tf.clip_by_value(self.xs_adv_var + alpha * grad_sign, xs_lo, xs_hi)  # 计算新值
         # clip by (x_min, x_max)
-        xs_adv_next = tf.clip_by_value(xs_adv_next, self.model.x_min, self.model.x_max)
+        self.xs_adv_next = tf.clip_by_value(self.xs_adv_next, self.model.x_min, self.model.x_max)
 
         # odi gradient
         self.odi_loss = loss_odi(self.xs_adv_model, self.ys_var)
@@ -93,9 +93,9 @@ class ODIPGDAttacker(BatchAttack):
         # update the adversarial example
         grad_sign_odi = tf.sign(grad_odi)
         # clip by max l_inf magnitude of adversarial noise
-        xs_adv_next_odi = tf.clip_by_value(self.xs_adv_var + alpha_odi * grad_sign_odi, xs_lo, xs_hi)  # 计算新值
+        self.xs_adv_next_odi = tf.clip_by_value(self.xs_adv_var + alpha_odi * grad_sign_odi, xs_lo, xs_hi)  # 计算新值
         # clip by (x_min, x_max)
-        xs_adv_next_odi = tf.clip_by_value(xs_adv_next_odi, self.model.x_min, self.model.x_max)
+        self.xs_adv_next_odi = tf.clip_by_value(self.xs_adv_next_odi, self.model.x_min, self.model.x_max)
 
         # 初始化
 
@@ -103,8 +103,8 @@ class ODIPGDAttacker(BatchAttack):
         # xs_init = tf.clip_by_value(tf.reshape(self.xs_ph, (self.batch_size, -1)) + noise,
         #                            self.model.x_min, self.model.x_max)
 
-        self.update_xs_adv_step = self.xs_adv_var.assign(xs_adv_next)  # 用计算出的新值更新
-        self.update_xs_adv_step_odi = self.xs_adv_var.assign(xs_adv_next_odi)  # 用计算出的新值更新
+        self.update_xs_adv_step = self.xs_adv_var.assign(self.xs_adv_next)  # 用计算出的新值更新
+        self.update_xs_adv_step_odi = self.xs_adv_var.assign(self.xs_adv_next_odi)  # 用计算出的新值更新
         self.config_eps_step = self.eps_var.assign(self.eps_ph)
         self.config_alpha_step = self.alpha_var.assign(self.alpha_ph)
         self.config_alpha_step_odi = self.alpha_var_odi.assign(self.alpha_ph_odi)
@@ -170,10 +170,13 @@ class ODIPGDAttacker(BatchAttack):
                 self._session.run(op)
                 op = xmax.assign(x1)
                 self._session.run(op)
-
+            xlast = tf.ones_like(self.xs_adv_var)
+            op = xlast.assign(x0)
+            self._session.run(op)
             for _ in range(self.iteration-1):  # 迭代K-1步
                 # self._session.run(self.update_xs_adv_step)
-                
+                z = self.xs_adv_next
+
             res.append(self._session.run(self.xs_adv_model))  # 返回结果
             logits = self.model.logits(self.xs_adv_model)
             preds = tf.argmax(logits, 1)
