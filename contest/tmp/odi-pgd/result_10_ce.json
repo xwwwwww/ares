@@ -1,0 +1,18 @@
+{
+    "cifar10-robust_overfitting":0.428,
+    "cifar10-free_at":0.534,
+    "cifar10-mmc":0.452,
+    "imagenet-fast_at":0.686,
+    "cifar10-label_smoothing":0.427,
+    "cifar10-hydra":0.38,
+    "cifar10-pgd_at":0.522,
+    "cifar10-awp":0.359,
+    "cifar10-rst":0.358,
+    "cifar10-feature_scatter":0.292,
+    "cifar10-wideresnet_trades":0.427,
+    "cifar10-at_he":0.381,
+    "cifar10-pre_training":0.409,
+    "cifar10-fast_at":0.503,
+    "imagenet-free_at":0.639,
+    "avg":0.45313333333333333
+}

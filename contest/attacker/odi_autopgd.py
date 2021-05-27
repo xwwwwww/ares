@@ -19,7 +19,7 @@ class Vods:
         return vods
 
 
-class AutoODIPGDAttacker(BatchAttack):
+class ODIPGDAttacker(BatchAttack):
     def __init__(self, model, batch_size, dataset, session):
         ''' Based on ares.attack.bim.BIM '''
         self.name = 'odi-pgd'
@@ -28,8 +28,9 @@ class AutoODIPGDAttacker(BatchAttack):
         output_dim = 10 if dataset == 'cifar10' else 1000
         wd = uniform_l_inf_noise(batch_size, output_dim, tf.constant([1.]*self.batch_size), self.model.x_dtype)
 
-        # loss = CWLoss(self.model)  # 定义loss
-        loss = CrossEntropyLoss(self.model)
+        # loss = CrossEntropyLoss(self.model)  # 定义loss
+        loss = CWLoss(self.model)  # 定义loss
+        # loss = CrossEntropyLoss(self.model)
         loss_odi = Vods(self.model, wd)
         # random init magnitude
         self.rand_init_eps_ph = tf.placeholder(self.model.x_dtype, (self.batch_size,))
@@ -69,6 +70,10 @@ class AutoODIPGDAttacker(BatchAttack):
         eps = tf.expand_dims(self.eps_var, 1)
         alpha = tf.expand_dims(self.alpha_var, 1)
         alpha_odi = tf.expand_dims(self.alpha_var_odi, 1)
+
+        # reset alpha
+        self.reset_alpha_step = self.alpha_var.assign(self.eps_var * 2)
+
         # calculate loss' gradient with relate to the adversarial example
         # grad.shape == (batch_size, D)
         self.xs_adv_model = tf.reshape(self.xs_adv_var, (batch_size, *self.model.x_shape))
@@ -147,9 +152,28 @@ class AutoODIPGDAttacker(BatchAttack):
                 self._session.run(self.update_xs_adv_step_odi)
 
             # pgd
+            self._session.run(self.reset_alpha_step)
+            fmax = tf.Variable(tf.zeros(1, ), dtype=tf.float)
+            xmax = tf.ones_like(self.xs_adv_var)
+            f0 = self._session.run(self.loss)
+            x0 = self._session.run(self.xs_adv_var)
+            self._session.run(self.update_xs_adv_step)
+            f1 = self._session.run(self.loss)
+            x1 = self._session.run(self.xs_adv_var)
+            if f0 > f1:
+                op = fmax.assign(f0)
+                self._session.run(op)
+                op = xmax.assign(x0)
+                self._session.run(op)
+            else:
+                op = fmax.assign(f1)
+                self._session.run(op)
+                op = xmax.assign(x1)
+                self._session.run(op)
 
-            for _ in range(self.iteration):  # 迭代K步
-                self._session.run(self.update_xs_adv_step)
+            for _ in range(self.iteration-1):  # 迭代K-1步
+                # self._session.run(self.update_xs_adv_step)
+                
             res.append(self._session.run(self.xs_adv_model))  # 返回结果
             logits = self.model.logits(self.xs_adv_model)
             preds = tf.argmax(logits, 1)
