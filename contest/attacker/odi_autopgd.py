@@ -179,41 +179,32 @@ class ODIAutoPGDAttacker(BatchAttack):
             x1 = self._session.run(self.xs_adv_var)
             fcnt = 0
             if f0.mean() >= f1.mean():
-                op = fmax.assign(f0)
-                self._session.run(op)
-                op = xmax.assign(x0)
+                op = [fmax.assign(f0), xmax.assign(x0)]
+                # self._session.run(op)
+                # op = xmax.assign(x0)
                 self._session.run(op)
             else:
-                op = fmax.assign(f1)
-                self._session.run(op)
-                op = xmax.assign(x1)
+                op = [fmax.assign(f1), xmax.assign(x1)]
+                # op = fmax.assign(f1)
+                # self._session.run(op)
+                # op = xmax.assign(x1)
                 self._session.run(op)
                 fcnt += 1
 
-            xlast = tf.Variable(self.xs_adv_var)
-            op = xlast.assign(x0)
-            self._session.run(op)
-
-            alpha_last = tf.Variable(self.alpha_var)
-            op = alpha_last.assign(self.alpha_var)
-            self._session.run(op)
             fmax_last = tf.Variable(fmax)
 
+            xlast = tf.Variable(self.xs_adv_var)
+            alpha_last = tf.Variable(self.alpha_var)
             flast = tf.Variable(fmax)
-            op = flast.assign(f1)
-            self._session.run(op)
+            op = [xlast.assign(x0), alpha_last.assign(self.alpha_var), flast.assign(f1)]
 
+            self._session.run(op)
             wlast = 0
             # print(type(fmax))
             print(f"{i} in odi")
             for k in range(1, self.iteration):  # 迭代K-1步
                 # self._session.run(self.update_xs_adv_step)
 
-                # xs_lo, xs_hi = self.xs_var - eps, self.xs_var + eps)
-                # # clip by max l_inf magnitude of adversarial noise
-                # self.xs_adv_next = tf.clip_by_value(self.xs_adv_var + alpha * grad_sign, xs_lo, xs_hi)  # 计算新值
-                # # clip by (x_min, x_max)
-                # self.xs_adv_next = tf.clip_by_value(self.xs_adv_next, self.model.x_min, self.model.x_max)
                 eps = tf.expand_dims(self.eps_var, 1)
 
                 z = self.xs_adv_next # 已经run过一次update_xs_adv_step
@@ -244,14 +235,14 @@ class ODIAutoPGDAttacker(BatchAttack):
                         cond2 = True
                     
                     if cond1 or cond2:
-                        op = self.alpha_var.assign(self.alpha_var / 2) # 更新步长
-                        self._session.run(op)
-                        op = self.xs_adv_var.assign(xmax) # 用x_max覆盖xs_adv
+                        op = [self.alpha_var.assign(self.alpha_var / 2), self.xs_adv_var.assign(xmax)] # 更新步长, 用x_max覆盖xs_adv
+                        # self._session.run(op)
+                        # op = self.xs_adv_var.assign(xmax) # 用x_max覆盖xs_adv
                         self._session.run(op)
 
-                    op = alpha_last.assign(self.alpha_var)
-                    self._session.run(op)
-                    op = fmax_last.assign(fmax)
+                    op = [alpha_last.assign(self.alpha_var), fmax_last.assign(fmax)]
+                    # self._session.run(op)
+                    # op = fmax_last.assign(fmax)
                     self._session.run(op)
 
                     fcnt = 0 # 复位
@@ -260,13 +251,12 @@ class ODIAutoPGDAttacker(BatchAttack):
                 newf = self._session.run(self.loss)
 
                 # print(type(fmax))
-                if newf.mean() > self._session.run(fmax).mean():
-                    op = fmax.assign(newf)
+                # if newf.mean() > self._session.run(fmax).mean():
+                if newf.mean() > tf.reduce_mean(fmax):
+                    op = [fmax.assign(newf), xmax.assign(w)]
+                    # self._session.run(op)
+                    # op = xmax.assign(w)
                     self._session.run(op)
-                    op = xmax.assign(w)
-                    self._session.run(op)
-
-                if newf.mean() > self._session.run(flast).mean():
                     fcnt += 1
 
                 if k % 20 == 0:
