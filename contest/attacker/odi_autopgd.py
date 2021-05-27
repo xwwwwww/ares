@@ -202,7 +202,8 @@ class ODIAutoPGDAttacker(BatchAttack):
             self._session.run(op)
 
             wlast = 0
-
+            # print(type(fmax))
+            print(f"{i} in odi")
             for k in range(1, self.iteration):  # 迭代K-1步
                 # self._session.run(self.update_xs_adv_step)
                 z = self.xs_adv_next
@@ -236,21 +237,26 @@ class ODIAutoPGDAttacker(BatchAttack):
                     wlast = k
 
                 newf = self._session.run(self.loss)
-                if newf.mean() > fmax.mean():
+
+                # print(type(fmax))
+                if newf.mean() > self._session.run(fmax).mean():
                     op = fmax.assign(newf)
                     self._session.run(op)
                     op = xmax.assign(w)
                     self._session.run(op)
 
-                if newf.mean() > flast.mean():
+                if newf.mean() > self._session.run(flast).mean():
                     fcnt += 1
+
+                if k % 20 == 0:
+                    print(k)
 
             res.append(self._session.run(self.xs_adv_model))  # 返回结果
             logits = self.model.logits(self.xs_adv_model)
             preds = tf.argmax(logits, 1)
             preds = self._session.run(preds)
             succ = (preds!=ys).sum()
-            # print(succ)
+            print(succ)
             # loss = self._session.run(self.loss).mean().item()
             # print(loss)
             # if loss > loss_max:
