@@ -28,9 +28,8 @@ class ODIPGDAttacker(BatchAttack):
         output_dim = 10 if dataset == 'cifar10' else 1000
         wd = uniform_l_inf_noise(batch_size, output_dim, tf.constant([1.]*self.batch_size), self.model.x_dtype)
 
-        # loss = CrossEntropyLoss(self.model)  # 定义loss
-        loss = CWLoss(self.model)  # 定义loss
-        # loss = CrossEntropyLoss(self.model)
+        # loss = CWLoss(self.model)  # 定义loss
+        loss = CrossEntropyLoss(self.model)
         loss_odi = Vods(self.model, wd)
         # random init magnitude
         self.rand_init_eps_ph = tf.placeholder(self.model.x_dtype, (self.batch_size,))
