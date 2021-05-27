@@ -205,11 +205,6 @@ class ODIAutoPGDAttacker(BatchAttack):
             for k in range(1, self.iteration):  # 迭代K-1步
                 # self._session.run(self.update_xs_adv_step)
 
-                # xs_lo, xs_hi = self.xs_var - eps, self.xs_var + eps)
-                # # clip by max l_inf magnitude of adversarial noise
-                # self.xs_adv_next = tf.clip_by_value(self.xs_adv_var + alpha * grad_sign, xs_lo, xs_hi)  # 计算新值
-                # # clip by (x_min, x_max)
-                # self.xs_adv_next = tf.clip_by_value(self.xs_adv_next, self.model.x_min, self.model.x_max)
                 eps = tf.expand_dims(self.eps_var, 1)
 
                 z = self.xs_adv_next # 已经run过一次update_xs_adv_step
