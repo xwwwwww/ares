@@ -22,13 +22,12 @@ class Vods:
 class ODIPGDAttacker(BatchAttack):
     def __init__(self, model, batch_size, dataset, session):
         ''' Based on ares.attack.bim.BIM '''
-        self.name = 'odi-pgd'
+        self.name = 'odi-pgd-decay'
         self.model, self.batch_size, self._session = model, batch_size, session
 
         output_dim = 10 if dataset == 'cifar10' else 1000
         wd = uniform_l_inf_noise(batch_size, output_dim, tf.constant([1.]*self.batch_size), self.model.x_dtype)
 
-        # loss = CrossEntropyLoss(self.model)  # 定义loss
         loss = CWLoss(self.model)  # 定义loss
         # loss = CrossEntropyLoss(self.model)
         loss_odi = Vods(self.model, wd)
@@ -99,6 +98,9 @@ class ODIPGDAttacker(BatchAttack):
         # xs_init = tf.clip_by_value(tf.reshape(self.xs_ph, (self.batch_size, -1)) + noise,
         #                            self.model.x_min, self.model.x_max)
 
+        decay = tf.constant([0.1]*self.batch_size)
+        self.update_alpha = self.alpha_var.assign(self.alpha_var * decay)
+
         self.update_xs_adv_step = self.xs_adv_var.assign(xs_adv_next)  # 用计算出的新值更新
         self.update_xs_adv_step_odi = self.xs_adv_var.assign(xs_adv_next_odi)  # 用计算出的新值更新
         self.config_eps_step = self.eps_var.assign(self.eps_ph)
@@ -115,8 +117,6 @@ class ODIPGDAttacker(BatchAttack):
         self.Nr = 10
         self.Nodi = 2
         # self.step_size = 1e-2
-
-        print('iteration = ', self.iteration)
 
     def config(self, **kwargs):
         if 'magnitude' in kwargs:
@@ -149,7 +149,9 @@ class ODIPGDAttacker(BatchAttack):
 
             # pgd
 
-            for _ in range(self.iteration):  # 迭代K步
+            for j in range(self.iteration):  # 迭代K步
+                if j == int(self.iteration / 3) or j == int(self.iteration * (2 / 3)):
+                    self._session.run(self.update_alpha)
                 self._session.run(self.update_xs_adv_step)
             res.append(self._session.run(self.xs_adv_model))  # 返回结果
             logits = self.model.logits(self.xs_adv_model)
