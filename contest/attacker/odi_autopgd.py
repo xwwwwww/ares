@@ -179,14 +179,15 @@ class ODIAutoPGDAttacker(BatchAttack):
             x1 = self._session.run(self.xs_adv_var)
             fcnt = 0
             if f0.mean() >= f1.mean():
-                op = fmax.assign(f0)
-                self._session.run(op)
-                op = xmax.assign(x0)
+                op = [fmax.assign(f0), xmax.assign(x0)]
+                # self._session.run(op)
+                # op = xmax.assign(x0)
                 self._session.run(op)
             else:
-                op = fmax.assign(f1)
-                self._session.run(op)
-                op = xmax.assign(x1)
+                op = [fmax.assign(f1), xmax.assign(x1)]
+                # op = fmax.assign(f1)
+                # self._session.run(op)
+                # op = xmax.assign(x1)
                 self._session.run(op)
                 fcnt += 1
 
