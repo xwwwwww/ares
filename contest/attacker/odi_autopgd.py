@@ -19,10 +19,10 @@ class Vods:
         return vods
 
 
-class ODIPGDAttacker(BatchAttack):
+class ODIAutoPGDAttacker(BatchAttack):
     def __init__(self, model, batch_size, dataset, session):
         ''' Based on ares.attack.bim.BIM '''
-        self.name = 'odi-pgd'
+        self.name = 'odi-autopgd'
         self.model, self.batch_size, self._session = model, batch_size, session
 
         output_dim = 10 if dataset == 'cifar10' else 1000
@@ -122,6 +122,21 @@ class ODIPGDAttacker(BatchAttack):
 
         print('iteration = ', self.iteration)
 
+        p = [0, 0.22]
+        pcur = 0.22
+        plast = 0
+        ws = [0, round(self.iteration * 0.22)]
+        while True:
+            newp = pcur + max(pcur - plast - 0.03, 0.06)
+            neww = round(self.iteration * newp)
+            if neww > self.iteration:
+                break
+            plast = pcur
+            pcur = newp
+            ws.append(neww)
+        self.ws = ws
+        print(f"ws:{self.ws}")
+
     def config(self, **kwargs):
         if 'magnitude' in kwargs:
             self.eps = kwargs['magnitude'] - 1e-6
@@ -153,14 +168,15 @@ class ODIPGDAttacker(BatchAttack):
 
             # pgd
             self._session.run(self.reset_alpha_step)
-            fmax = tf.Variable(tf.zeros(1, ), dtype=tf.float)
+            fmax = tf.Variable(tf.zeros(self.batch_size, ), dtype=tf.float32)
             xmax = tf.ones_like(self.xs_adv_var)
             f0 = self._session.run(self.loss)
             x0 = self._session.run(self.xs_adv_var)
             self._session.run(self.update_xs_adv_step)
             f1 = self._session.run(self.loss)
             x1 = self._session.run(self.xs_adv_var)
-            if f0 > f1:
+            fcnt = 0
+            if f0.mean() >= f1.mean():
                 op = fmax.assign(f0)
                 self._session.run(op)
                 op = xmax.assign(x0)
@@ -170,12 +186,64 @@ class ODIPGDAttacker(BatchAttack):
                 self._session.run(op)
                 op = xmax.assign(x1)
                 self._session.run(op)
+                fcnt += 1
+
             xlast = tf.ones_like(self.xs_adv_var)
             op = xlast.assign(x0)
             self._session.run(op)
-            for _ in range(self.iteration-1):  # 迭代K-1步
+
+            alpha_last = tf.ones_like(self.alpha_var)
+            op = alpha_last.assign(self.alpha_var)
+            self._session.run(op)
+            fmax_last = tf.ones_like(fmax)
+
+            flast = tf.ones_like(fmax)
+            op = flast.assign(f1)
+            self._session.run(op)
+
+            wlast = 0
+
+            for k in range(1, self.iteration):  # 迭代K-1步
                 # self._session.run(self.update_xs_adv_step)
                 z = self.xs_adv_next
+                w = self.xs_adv_var + 0.75 * (z - self.xs_adv_var) + 0.25 * (self.xs_adv_var - xlast)
+                op = self.xs_adv_var.assign(w)
+                self._session.run(op)
+                
+                if k in self.ws:
+                    cond1 = False
+
+                    if fcnt < 0.75 * (k - wlast):
+                        cond1 = True
+
+                    cond2 = False
+                    if alpha_last == self.alpha_var and fmax_last == fmax:
+                        cond2 = True
+
+                    
+                    if cond1 or cond2:
+                        op = self.alpha_var.assign(self.alpha_var / 2)
+                        self._session.run(op)
+                        op = self.xs_adv_var.assign(xmax)
+                        self._session.run(op)
+
+                    op = alpha_last.assign(self.alpha_var)
+                    self._session.run(op)
+                    op = fmax_last.assign(fmax)
+                    self._session.run(op)
+
+                    fcnt = 0
+                    wlast = k
+
+                newf = self._session.run(self.loss)
+                if newf.mean() > fmax.mean():
+                    op = fmax.assign(newf)
+                    self._session.run(op)
+                    op = xmax.assign(w)
+                    self._session.run(op)
+
+                if newf.mean() > flast.mean():
+                    fcnt += 1
 
             res.append(self._session.run(self.xs_adv_model))  # 返回结果
             logits = self.model.logits(self.xs_adv_model)
