@@ -235,14 +235,14 @@ class ODIAutoPGDAttacker(BatchAttack):
                         cond2 = True
                     
                     if cond1 or cond2:
-                        op = self.alpha_var.assign(self.alpha_var / 2) # 更新步长
-                        self._session.run(op)
-                        op = self.xs_adv_var.assign(xmax) # 用x_max覆盖xs_adv
+                        op = [self.alpha_var.assign(self.alpha_var / 2), self.xs_adv_var.assign(xmax)] # 更新步长, 用x_max覆盖xs_adv
+                        # self._session.run(op)
+                        # op = self.xs_adv_var.assign(xmax) # 用x_max覆盖xs_adv
                         self._session.run(op)
 
-                    op = alpha_last.assign(self.alpha_var)
-                    self._session.run(op)
-                    op = fmax_last.assign(fmax)
+                    op = [alpha_last.assign(self.alpha_var), fmax_last.assign(fmax)]
+                    # self._session.run(op)
+                    # op = fmax_last.assign(fmax)
                     self._session.run(op)
 
                     fcnt = 0 # 复位
@@ -251,13 +251,12 @@ class ODIAutoPGDAttacker(BatchAttack):
                 newf = self._session.run(self.loss)
 
                 # print(type(fmax))
-                if newf.mean() > self._session.run(fmax).mean():
-                    op = fmax.assign(newf)
+                # if newf.mean() > self._session.run(fmax).mean():
+                if newf.mean() > tf.reduce_mean(fmax):
+                    op = [fmax.assign(newf), xmax.assign(w)]
+                    # self._session.run(op)
+                    # op = xmax.assign(w)
                     self._session.run(op)
-                    op = xmax.assign(w)
-                    self._session.run(op)
-
-                if newf.mean() > self._session.run(flast).mean():
                     fcnt += 1
 
                 if k % 20 == 0:
