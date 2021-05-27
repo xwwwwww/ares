@@ -35,7 +35,7 @@ class MyTimer:
 class ODIAutoPGDAttacker(BatchAttack):
     def __init__(self, model, batch_size, dataset, session):
         ''' Based on ares.attack.bim.BIM '''
-        self.name = 'odi-autopgd'
+        self.name = 'odi-autopgd-np'
         self.model, self.batch_size, self._session = model, batch_size, session
 
         output_dim = 10 if dataset == 'cifar10' else 1000

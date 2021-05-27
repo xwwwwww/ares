@@ -3,7 +3,18 @@ import tensorflow as tf
 from ares.attack.base import BatchAttack
 from ares.attack.utils import get_xs_ph, get_ys_ph, maybe_to_array
 from ares.loss import CrossEntropyLoss
+from time import time
+import sys
 
+
+class MyTimer:
+    def __init__(self) -> None:
+        self.last = time()
+
+    def logtime(self):
+        cur = time()
+        print(f"line {str(sys._getframe(1).f_lineno)}, elapsed time:{cur-self.last} s")
+        self.last = cur
 
 class BIMAttacker(BatchAttack):
     def __init__(self, model, batch_size, dataset, session):
@@ -53,7 +64,7 @@ class BIMAttacker(BatchAttack):
         self.setup_xs = [self.xs_var.assign(tf.reshape(self.xs_ph, xs_flatten_shape)),
                          self.xs_adv_var.assign(tf.reshape(self.xs_ph, xs_flatten_shape))]
         self.setup_ys = self.ys_var.assign(self.ys_ph)
-        self.iteration = 100
+        self.iteration = 10
 
     def config(self, **kwargs):
         if 'magnitude' in kwargs:
@@ -65,6 +76,8 @@ class BIMAttacker(BatchAttack):
     def batch_attack(self, xs, ys=None, ys_target=None):
         self._session.run(self.setup_xs, feed_dict={self.xs_ph: xs}) # 初始化 
         self._session.run(self.setup_ys, feed_dict={self.ys_ph: ys})
+        mytimer = MyTimer()
         for _ in range(self.iteration): # 迭代K步
             self._session.run(self.update_xs_adv_step)
+        mytimer.logtime()
         return self._session.run(self.xs_adv_model) # 返回结果

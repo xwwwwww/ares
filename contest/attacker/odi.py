@@ -4,6 +4,18 @@ from ares.attack.base import BatchAttack
 from ares.attack.utils import get_xs_ph, get_ys_ph, maybe_to_array
 from ares.attack.utils import maybe_to_array, uniform_l_2_noise, uniform_l_inf_noise
 from ares.loss import CrossEntropyLoss, CWLoss
+from time import time
+import sys
+
+
+class MyTimer:
+    def __init__(self) -> None:
+        self.last = time()
+
+    def logtime(self):
+        cur = time()
+        print(f"line {str(sys._getframe(1).f_lineno)}, elapsed time:{cur-self.last} s")
+        self.last = cur
 
 class Vods:
     ''' calculate vods '''
@@ -17,6 +29,7 @@ class Vods:
         vods = tf.matmul(tf.transpose(self.wd), logits)
         vods = vods / tf.norm(vods, 2)
         return vods
+
 
 
 class ODIPGDAttacker(BatchAttack):
@@ -147,9 +160,10 @@ class ODIPGDAttacker(BatchAttack):
                 self._session.run(self.update_xs_adv_step_odi)
 
             # pgd
-
+            mytimer = MyTimer()
             for _ in range(self.iteration):  # 迭代K步
                 self._session.run(self.update_xs_adv_step)
+                mytimer.logtime()
             res.append(self._session.run(self.xs_adv_model))  # 返回结果
             logits = self.model.logits(self.xs_adv_model)
             preds = tf.argmax(logits, 1)

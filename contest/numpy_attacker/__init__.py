@@ -3,7 +3,18 @@ import tensorflow as tf
 from ares.attack.base import BatchAttack
 from ares.attack.utils import get_xs_ph, get_ys_ph
 from ares.loss import CrossEntropyLoss
+from time import time
+import sys
 
+
+class MyTimer:
+    def __init__(self) -> None:
+        self.last = time()
+
+    def logtime(self):
+        cur = time()
+        print(f"line {str(sys._getframe(1).f_lineno)}, elapsed time:{cur-self.last} s")
+        self.last = cur
 
 class Attacker(BatchAttack):
     def __init__(self, model, batch_size, dataset, session):
@@ -26,10 +37,12 @@ class Attacker(BatchAttack):
     def batch_attack(self, xs, ys=None, ys_target=None):
         xs_lo, xs_hi = xs - self.eps, xs + self.eps
         xs_adv = xs
+        mytimer = MyTimer()
         for _ in range(self.iteration):
             grad = self._session.run(self.grad, feed_dict={self.xs_ph: xs_adv, self.ys_ph: ys})
             grad = grad.reshape(self.batch_size, *self.model.x_shape)
             grad_sign = np.sign(grad)
             xs_adv = np.clip(xs_adv + self.alpha * grad_sign, xs_lo, xs_hi)
             xs_adv = np.clip(xs_adv, self.model.x_min, self.model.x_max)
+        mytimer.logtime()
         return xs_adv
