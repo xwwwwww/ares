@@ -156,7 +156,7 @@ class ODIPGDAttacker(BatchAttack):
             preds = self._session.run(preds)
             succ = (preds!=ys).sum()
             # print(succ)
-            loss = self._session.run(self.loss)
+            # loss = self._session.run(self.loss)
             # print(loss.dtype)
             # loss = self._session.run(self.loss).mean().item()
             # print(loss)

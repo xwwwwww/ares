@@ -166,8 +166,10 @@ class ODIAutoPGDAttacker(BatchAttack):
                 # self.__session.run() # 参考pgd的update
                 self._session.run(self.update_xs_adv_step_odi)
 
-            # pgd
+            # 复原alpha
             self._session.run(self.reset_alpha_step)
+
+            # 初始化
             fmax = tf.Variable(tf.zeros(self.batch_size, ), dtype=tf.float32)
             xmax = tf.Variable(self.xs_adv_var)
             f0 = self._session.run(self.loss)
@@ -206,26 +208,45 @@ class ODIAutoPGDAttacker(BatchAttack):
             print(f"{i} in odi")
             for k in range(1, self.iteration):  # 迭代K-1步
                 # self._session.run(self.update_xs_adv_step)
-                z = self.xs_adv_next
-                w = self.xs_adv_var + 0.75 * (z - self.xs_adv_var) + 0.25 * (self.xs_adv_var - xlast)
-                op = self.xs_adv_var.assign(w)
-                self._session.run(op)
-                
-                if k in self.ws:
-                    cond1 = False
 
+                # xs_lo, xs_hi = self.xs_var - eps, self.xs_var + eps)
+                # # clip by max l_inf magnitude of adversarial noise
+                # self.xs_adv_next = tf.clip_by_value(self.xs_adv_var + alpha * grad_sign, xs_lo, xs_hi)  # 计算新值
+                # # clip by (x_min, x_max)
+                # self.xs_adv_next = tf.clip_by_value(self.xs_adv_next, self.model.x_min, self.model.x_max)
+                eps = tf.expand_dims(self.eps_var, 1)
+
+                z = self.xs_adv_next # 已经run过一次update_xs_adv_step
+                # project(z)
+                z_lo, z_hi = z - eps, z + eps
+                z = tf.clip_by_value(z, z_lo, z_hi)
+                z = tf.clip_by_value(z, self.model.x_min, self.model.x_max)
+
+                w = self.xs_adv_var + 0.75 * (z - self.xs_adv_var) + 0.25 * (self.xs_adv_var - xlast) 
+                # project(w)
+                w_lo, w_hi = w - eps, w + eps
+                w = tf.clip_by_value(w, w_lo, w_hi)
+                w = tf.clip_by_value(w, self.model.x_min, self.model.x_max)
+                
+                op = self.xs_adv_var.assign(w)
+                self._session.run(op) # 得到x_{k+1}
+                
+                if k in self.ws: # 更新step_size
+                    
+                    # condition 1: how many cases since the last checkpoint wj−1 the update step has been successful in increasing f
+                    cond1 = False
                     if fcnt < 0.75 * (k - wlast):
                         cond1 = True
 
+                    # condition 2: the step size was not reduced at the last checkpoint and there has been no improvement in the best found objective value since the last checkpoint.
                     cond2 = False
-                    if alpha_last == self.alpha_var and fmax_last == fmax:
+                    if alpha_last == self.alpha_var and fmax_last == fmax: # 
                         cond2 = True
-
                     
                     if cond1 or cond2:
-                        op = self.alpha_var.assign(self.alpha_var / 2)
+                        op = self.alpha_var.assign(self.alpha_var / 2) # 更新步长
                         self._session.run(op)
-                        op = self.xs_adv_var.assign(xmax)
+                        op = self.xs_adv_var.assign(xmax) # 用x_max覆盖xs_adv
                         self._session.run(op)
 
                     op = alpha_last.assign(self.alpha_var)
@@ -233,8 +254,8 @@ class ODIAutoPGDAttacker(BatchAttack):
                     op = fmax_last.assign(fmax)
                     self._session.run(op)
 
-                    fcnt = 0
-                    wlast = k
+                    fcnt = 0 # 复位
+                    wlast = k # 记录上次checkpoint的位置
 
                 newf = self._session.run(self.loss)
 
@@ -249,14 +270,14 @@ class ODIAutoPGDAttacker(BatchAttack):
                     fcnt += 1
 
                 if k % 20 == 0:
-                    print(k)
+                    print('k = ', k)
 
             res.append(self._session.run(self.xs_adv_model))  # 返回结果
             logits = self.model.logits(self.xs_adv_model)
             preds = tf.argmax(logits, 1)
             preds = self._session.run(preds)
             succ = (preds!=ys).sum()
-            print(succ)
+            print('succ = ', succ)
             # loss = self._session.run(self.loss).mean().item()
             # print(loss)
             # if loss > loss_max:
