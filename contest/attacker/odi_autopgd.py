@@ -288,7 +288,7 @@ class ODIAutoPGDAttacker(BatchAttack):
 
             # self._session.run(op)
             self._session.run([self.update_xlast, self.update_alpha_last, self.update_flast, self.update_fmax_last], feed_dict={
-                              self.xlast_ph: x0, self.alpha_last_ph: self._session.run(self.alpha_var), self.flast_ph: f1, self.fmax_last_ph: np.array([-1000]*self.batch_size)})
+                              self.xlast_ph: x0, self.alpha_last_ph: self._session.run(self.alpha_var), self.flast_ph: f1, self.fmax_last_ph: self._session.run(self.fmax)})
             # wlast = 0
             mytimer.logtime()
             # print(type(fmax))
