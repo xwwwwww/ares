@@ -269,12 +269,12 @@ class ODIAutoPGDAttacker(BatchAttack):
             f1 = self._session.run(self.loss)
             x1 = self._session.run(self.xs_adv_var)
             mytimer.logtime()
-            fcnt = 0
+            # fcnt = 0
             if f0.mean() >= f1.mean():
                 self._session.run([self.update_fmax, self.update_xmax], feed_dict={self.fmax_ph: f0, self.xmax_ph: x0})
             else:
                 self._session.run([self.update_fmax, self.update_xmax], feed_dict={self.fmax_ph: f1, self.xmax_ph: x1})
-                fcnt += 1
+                self.fcnt += 1
 
             # fmax_last = tf.Variable(self.fmax)
 
