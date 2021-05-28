@@ -154,7 +154,7 @@ class ODIAutoPGDAttacker(BatchAttack):
     def init_auto(self):
         self.fmax_ph = tf.placeholder(self.model.x_dtype, (self.batch_size,))
         self.xmax_ph = tf.placeholder(self.model.x_dtype, self.xs_flatten_shape)
-        self.xlast_ph = get_xs_ph(self.model, self.batch_size)
+        self.xlast_ph = tf.placeholder(self.model.x_dtype, self.xs_flatten_shape)
         self.alpha_last_ph = tf.placeholder(self.model.x_dtype, (self.batch_size,))
         self.flast_ph = tf.placeholder(self.model.x_dtype, (self.batch_size,))
         self.cond1 = tf.placeholder(tf.bool)
