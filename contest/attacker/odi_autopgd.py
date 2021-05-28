@@ -152,9 +152,17 @@ class ODIAutoPGDAttacker(BatchAttack):
         self.init_auto()
 
     def init_auto(self):
+        self.fmax_ph = tf.placeholder(self.model.x_dtype, (self.batch_size,))
+        self.xmax_ph = get_xs_ph(self.model, self.batch_size)
+        self.xlast_ph = get_xs_ph(self.model, self.batch_size)
+        
         self.fmax = tf.Variable(tf.zeros(self.batch_size, ), dtype=tf.float32)
         self.xmax = tf.Variable(self.xs_adv_var)
         self.xlast = tf.Variable(self.xs_adv_var)
+
+        self.update_fmax = self.fmax.assign(self.fmax_ph)
+        self.update_xmax = self.xmax.assign(self.xmax_ph)
+        self.update_xlast = self.xlast.assign(self.xlast_ph)
 
         self.fcnt = 0
         self.k = 0
@@ -264,16 +272,17 @@ class ODIAutoPGDAttacker(BatchAttack):
             mytimer.logtime()
             fcnt = 0
             if f0.mean() >= f1.mean():
-                op = [self.fmax.assign(f0), self.xmax.assign(x0)]
+                # op = [self.fmax.assign(f0), self.xmax.assign(x0)]
                 # self._session.run(op)
                 # op = xmax.assign(x0)
-                self._session.run(op)
+                self._session.run([self.update_fmax, self.update_xmax], feed_dict={self.fmax_ph: f0, self.xmax_ph: x0})
             else:
-                op = [self.fmax.assign(f1), self.xmax.assign(x1)]
+                # op = [self.fmax.assign(f1), self.xmax.assign(x1)]
                 # op = fmax.assign(f1)
                 # self._session.run(op)
                 # op = xmax.assign(x1)
-                self._session.run(op)
+                # self._session.run(op)
+                self._session.run([self.update_fmax, self.update_xmax], feed_dict={self.fmax_ph: f1, self.xmax_ph: x1})
                 fcnt += 1
 
             fmax_last = tf.Variable(self.fmax)
