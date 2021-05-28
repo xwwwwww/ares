@@ -157,12 +157,14 @@ class ODIAutoPGDAttacker(BatchAttack):
         self.xlast_ph = get_xs_ph(self.model, self.batch_size)
         self.alpha_last_ph = tf.placeholder(self.model.x_dtype, (self.batch_size,))
         self.flast_ph = tf.placeholder(self.model.x_dtype, (self.batch_size,))
-        
+        self.cond1 = tf.placeholder(tf.bool)
+
         self.fmax = tf.Variable(tf.zeros(self.batch_size, ), dtype=tf.float32)
         self.xmax = tf.Variable(self.xs_adv_var)
         self.xlast = tf.Variable(self.xs_adv_var)
         self.alpha_last = tf.Variable(self.alpha_var)
         self.flast = tf.Variable(tf.zeros(self.batch_size, ), dtype=tf.float32)
+        self.fmax_last = tf.Variabe(tf.zeros(self.batch_size, ), dtype=tf.float32)
 
         self.update_fmax = self.fmax.assign(self.fmax_ph)
         self.update_xmax = self.xmax.assign(self.xmax_ph)
@@ -186,29 +188,47 @@ class ODIAutoPGDAttacker(BatchAttack):
         if k in self.ws:  # 更新step_size
 
             # condition 1: how many cases since the last checkpoint wj−1 the update step has been successful in increasing f
-            cond1 = False
-            if self.fcnt < 0.75 * (self.k - self.wlast):
-                cond1 = True
+            # cond1 = False
+            # if self.fcnt < 0.75 * (self.k - self.wlast):
+            #     cond1 = True
 
             # condition 2: the step size was not reduced at the last checkpoint and there has been no improvement in the best found objective value since the last checkpoint.
-            cond2 = False
-            if alpha_last == self.alpha_var and fmax_last == fmax:
-                cond2 = True
+            alpha_notchange = tf.equal(self.alpha_last, self.alpha_var)
+            fmax_notchange = tf.equal(self.fmax_last, self.fmax)
+            # cond2 = False
+            # if alpha_last == self.alpha_var and fmax_last == fmax:
+            #     cond2 = True
+            self.cond2 = tf.logical_and(alpha_notchange, fmax_notchange)
 
-            if cond1 or cond2:
+            def cond1_or_cond2_true():
                 op = [self.alpha_var.assign(self.alpha_var / 2),
-                        self.xs_adv_var.assign(xmax)]  # 更新步长, 用x_max覆盖xs_adv
-                # self._session.run(op)
-                # op = self.xs_adv_var.assign(xmax) # 用x_max覆盖xs_adv
-                self._session.run(op)
+                      self.xs_adv_var.assign(self.xmax), self.alpha_last.assign(self.alpha_var),
+                      self.fmax_last.assgin(self.fmax)]
+                return op
 
-            op = [alpha_last.assign(self.alpha_var), fmax_last.assign(fmax)]
+            def cond1_or_cond2_false():
+                op = [self.alpha_var,
+                      self.xs_adv_var, self.alpha_last.assign(self.alpha_var),
+                      self.fmax_last.assgin(self.fmax)]
+                return op
+
+            self.update_step_size = tf.cond(tf.logical_or(self.cond1, self.cond2),
+                                            cond1_or_cond2_true, cond1_or_cond2_false)
+
+            # if cond1 or cond2:
+            #     op = [self.alpha_var.assign(self.alpha_var / 2),
+            #           self.xs_adv_var.assign(xmax)]  # 更新步长, 用x_max覆盖xs_adv
+            #     # self._session.run(op)
+            #     # op = self.xs_adv_var.assign(xmax) # 用x_max覆盖xs_adv
+            #     self._session.run(op)
+
+            # op = [alpha_last.assign(self.alpha_var), fmax_last.assign(fmax)]
+            # # self._session.run(op)
+            # # op = fmax_last.assign(fmax)
             # self._session.run(op)
-            # op = fmax_last.assign(fmax)
-            self._session.run(op)
 
-            fcnt = 0  # 复位
-            wlast = k  # 记录上次checkpoint的位置
+            # fcnt = 0  # 复位
+            # wlast = k  # 记录上次checkpoint的位置
 
         # newf = self._session.run(self.loss)
 
@@ -220,7 +240,8 @@ class ODIAutoPGDAttacker(BatchAttack):
             return [self.fmax, self.xmax]
 
         with tf.control_dependencies([update_xadv_op]):
-            self.update_xmax_fmax_step = tf.cond(tf.reduce_mean(self.loss) > tf.reduce_mean(self.fmax), update_xmax_fmax, dummy_f)
+            self.update_xmax_fmax_step = tf.cond(tf.reduce_mean(
+                self.loss) > tf.reduce_mean(self.fmax), update_xmax_fmax, dummy_f)
 
         # print(type(fmax))
         # if newf.mean() > self._session.run(fmax).mean():
@@ -230,7 +251,6 @@ class ODIAutoPGDAttacker(BatchAttack):
         #     # op = xmax.assign(w)
         #     self._session.run(op)
         #     fcnt += 1
-
 
     def config(self, **kwargs):
         if 'magnitude' in kwargs:
@@ -291,7 +311,7 @@ class ODIAutoPGDAttacker(BatchAttack):
                 self._session.run([self.update_fmax, self.update_xmax], feed_dict={self.fmax_ph: f1, self.xmax_ph: x1})
                 fcnt += 1
 
-            fmax_last = tf.Variable(self.fmax)
+            # fmax_last = tf.Variable(self.fmax)
 
             # self.xlast = tf.Variable(self.xs_adv_var)
             alpha_last = tf.Variable(self.alpha_var)
@@ -299,14 +319,23 @@ class ODIAutoPGDAttacker(BatchAttack):
             op = [self.xlast.assign(x0), alpha_last.assign(self.alpha_var), flast.assign(f1)]
 
             self._session.run(op)
-            wlast = 0
+            # wlast = 0
             mytimer.logtime()
             # print(type(fmax))
             print(f"{i} in odi")
             for k in range(1, self.iteration):  # 迭代K-1步
                 # self._session.run(self.update_xs_adv_step)
                 self._session.run(self.update_xmax_fmax_step)
-                
+
+                if k in self.ws:
+                    self.k = k
+
+                    self._session.run(self.update_step_size, feed_dict={
+                                      self.cond1: self.fcnt < 0.75 * (self.k - self.wlast)})
+
+                    self.fcnt = 0
+                    self.wlast = k
+
                 if k % 20 == 0:
                     print('k = ', k)
                 mytimer.logtime()
