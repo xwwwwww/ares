@@ -62,14 +62,14 @@ class ODIAutoPGDAttacker(BatchAttack):
                                    self.model.x_min, self.model.x_max)
 
         # flatten shape of xs_ph
-        xs_flatten_shape = (batch_size, np.prod(self.model.x_shape))
+        self.xs_flatten_shape = (batch_size, np.prod(self.model.x_shape))
         # store xs and ys in variables to reduce memory copy between tensorflow and python
         # variable for the original example with shape of (batch_size, D)
-        self.xs_var = tf.Variable(tf.zeros(shape=xs_flatten_shape, dtype=self.model.x_dtype))
+        self.xs_var = tf.Variable(tf.zeros(shape=self.xs_flatten_shape, dtype=self.model.x_dtype))
         # variable for labels
         self.ys_var = tf.Variable(tf.zeros(shape=(batch_size,), dtype=self.model.y_dtype))
         # variable for the (hopefully) adversarial example with shape of (batch_size, D)
-        self.xs_adv_var = tf.Variable(tf.zeros(shape=xs_flatten_shape, dtype=self.model.x_dtype))
+        self.xs_adv_var = tf.Variable(tf.zeros(shape=self.xs_flatten_shape, dtype=self.model.x_dtype))
         # magnitude
         self.eps_ph = tf.placeholder(self.model.x_dtype, (self.batch_size,))
         self.eps_var = tf.Variable(tf.zeros((self.batch_size,), dtype=self.model.x_dtype))
@@ -123,7 +123,7 @@ class ODIAutoPGDAttacker(BatchAttack):
         self.config_alpha_step_odi = self.alpha_var_odi.assign(self.alpha_ph_odi)
         self.config_rand_init_eps = self.rand_init_eps_var.assign(self.rand_init_eps_ph)
 
-        self.setup_xs = [self.xs_var.assign(tf.reshape(self.xs_ph, xs_flatten_shape)),
+        self.setup_xs = [self.xs_var.assign(tf.reshape(self.xs_ph, self.xs_flatten_shape)),
                          self.xs_adv_var.assign(xs_init)]
         self.setup_ys = self.ys_var.assign(self.ys_ph)
 
@@ -153,7 +153,7 @@ class ODIAutoPGDAttacker(BatchAttack):
 
     def init_auto(self):
         self.fmax_ph = tf.placeholder(self.model.x_dtype, (self.batch_size,))
-        self.xmax_ph = get_xs_ph(self.model, self.batch_size)
+        self.xmax_ph = tf.placeholder(self.model.x_dtype, self.xs_flatten_shape)
         self.xlast_ph = get_xs_ph(self.model, self.batch_size)
         self.alpha_last_ph = tf.placeholder(self.model.x_dtype, (self.batch_size,))
         self.flast_ph = tf.placeholder(self.model.x_dtype, (self.batch_size,))
