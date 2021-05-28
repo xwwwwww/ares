@@ -64,7 +64,7 @@ class BIMAttacker(BatchAttack):
         self.setup_xs = [self.xs_var.assign(tf.reshape(self.xs_ph, xs_flatten_shape)),
                          self.xs_adv_var.assign(tf.reshape(self.xs_ph, xs_flatten_shape))]
         self.setup_ys = self.ys_var.assign(self.ys_ph)
-        self.iteration = 10
+        self.iteration = 100
 
     def config(self, **kwargs):
         if 'magnitude' in kwargs:
