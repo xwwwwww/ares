@@ -157,6 +157,8 @@ class ODIAutoPGDAttacker(BatchAttack):
         self.xlast_ph = tf.placeholder(self.model.x_dtype, self.xs_flatten_shape)
         self.alpha_last_ph = tf.placeholder(self.model.x_dtype, (self.batch_size,))
         self.flast_ph = tf.placeholder(self.model.x_dtype, (self.batch_size,))
+        self.fmax_last_ph = tf.placeholder(self.model.x_dtype, (self.batch_size, ))
+
         self.cond1 = tf.placeholder(tf.bool, name="cond1")
 
         self.fmax = tf.Variable(tf.zeros(self.batch_size, ), dtype=tf.float32)
@@ -171,6 +173,7 @@ class ODIAutoPGDAttacker(BatchAttack):
         self.update_xlast = self.xlast.assign(self.xlast_ph)
         self.update_alpha_last = self.alpha_last.assign(self.alpha_last_ph)
         self.update_flast = self.flast.assign(self.flast_ph)
+        self.update_fmax_last = self.fmax_last.assign(self.fmax_last_ph)
 
         self.fcnt = 0
         self.k = 0
@@ -284,8 +287,8 @@ class ODIAutoPGDAttacker(BatchAttack):
             # op = [self.xlast.assign(x0), alpha_last.assign(self.alpha_var), flast.assign(f1)]
 
             # self._session.run(op)
-            self._session.run([self.update_xlast, self.update_alpha_last, self.update_flast], feed_dict={
-                              self.xlast_ph: x0, self.alpha_last_ph: self._session.run(self.alpha_var), self.flast_ph: f1})
+            self._session.run([self.update_xlast, self.update_alpha_last, self.update_flast, self.update_fmax_last], feed_dict={
+                              self.xlast_ph: x0, self.alpha_last_ph: self._session.run(self.alpha_var), self.flast_ph: f1, self.fmax_last_ph: np.array([-1000]*self.batch_size)})
             # wlast = 0
             mytimer.logtime()
             # print(type(fmax))
