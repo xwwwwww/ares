@@ -207,7 +207,7 @@ class ODIAutoPGDAttacker(BatchAttack):
             return [self.fmax.assign(self.loss), self.xmax.assign(w)]
 
         def dummy_f():
-            return [tf.cast(tf.no_op(), tf.float32), tf.cast(tf.no_op(), tf.float32)]
+            return [self.fmax, self.xmax]
 
         with tf.control_dependencies([update_xadv_op]):
             self.update_xmax_fmax_step = tf.cond(tf.reduce_mean(self.loss) > tf.reduce_mean(self.fmax), update_xmax_fmax, dummy_f)
@@ -283,10 +283,10 @@ class ODIAutoPGDAttacker(BatchAttack):
 
             fmax_last = tf.Variable(self.fmax)
 
-            xlast = tf.Variable(self.xs_adv_var)
+            # self.xlast = tf.Variable(self.xs_adv_var)
             alpha_last = tf.Variable(self.alpha_var)
             flast = tf.Variable(self.fmax)
-            op = [xlast.assign(x0), alpha_last.assign(self.alpha_var), flast.assign(f1)]
+            op = [self.xlast.assign(x0), alpha_last.assign(self.alpha_var), flast.assign(f1)]
 
             self._session.run(op)
             wlast = 0
