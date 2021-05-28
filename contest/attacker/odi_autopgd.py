@@ -182,7 +182,7 @@ class ODIAutoPGDAttacker(BatchAttack):
         w = tf.clip_by_value(w, w_lo, w_hi)
         w = tf.clip_by_value(w, self.model.x_min, self.model.x_max)
 
-        self.update_xadv_op = self.xs_adv_var.assign(w)
+        self.update_xadv_op = [self.xs_adv_var.assign(w), self.xlast.assign(self.xs_adv_var)]
 
         alpha_notchange = tf.equal(self.alpha_last, self.alpha_var)
         fmax_notchange = tf.equal(self.fmax_last, self.fmax)
@@ -192,28 +192,38 @@ class ODIAutoPGDAttacker(BatchAttack):
         def cond1_or_cond2_true():
             op = [self.alpha_var.assign(self.alpha_var / 2),
                   self.xs_adv_var.assign(self.xmax), self.alpha_last.assign(self.alpha_var),
-                  self.fmax_last.assgin(self.fmax)]
+                  self.fmax_last.assign(self.fmax)]
             return op
 
         def cond1_or_cond2_false():
             op = [self.alpha_var,
                   self.xs_adv_var, self.alpha_last.assign(self.alpha_var),
-                  self.fmax_last.assgin(self.fmax)]
+                  self.fmax_last.assign(self.fmax)]
             return op
 
         self.update_step_size = tf.cond(tf.logical_or(self.cond1, self.cond2),
                                         cond1_or_cond2_true, cond1_or_cond2_false)
 
         def update_xmax_fmax():
-            self.fcnt += 1
+            # self.fcnt += 1
             return [self.fmax.assign(self.loss), self.xmax.assign(w)]
 
         def dummy_f():
             return [self.fmax, self.xmax]
 
+        def update_fcnt():
+            self.fcnt += 1
+            return self.flast.assign(self.loss)
+        
+        def dummy_update_fcnt():
+            return self.flast.assign(self.loss)
+
         # with tf.control_dependencies([update_xadv_op]):
         self.update_xmax_fmax_step = tf.cond(tf.reduce_mean(
             self.loss) > tf.reduce_mean(self.fmax), update_xmax_fmax, dummy_f)
+
+        self.update_fcnt_step = tf.cond(tf.reduce_mean(
+            self.loss) > tf.reduce_mean(self.flast), update_fcnt, dummy_update_fcnt)
 
     def config(self, **kwargs):
         if 'magnitude' in kwargs:
@@ -293,7 +303,7 @@ class ODIAutoPGDAttacker(BatchAttack):
                     self.fcnt = 0
                     self.wlast = k
 
-                self._session.run(self.update_xmax_fmax_step)
+                self._session.run([self.update_xmax_fmax_step, self.update_fcnt_step])
 
                 if k % 20 == 0:
                     print('k = ', k)
