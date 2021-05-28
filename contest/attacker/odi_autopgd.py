@@ -309,6 +309,12 @@ class ODIAutoPGDAttacker(BatchAttack):
 
                 self._session.run([self.update_xmax_fmax_step, self.update_fcnt_step])
 
+                logits = self.model.logits(self.xs_adv_model)
+                preds = tf.argmax(logits, 1)
+                preds = self._session.run(preds)
+                succ = (preds != ys).sum()
+                print('succ = ', succ)
+
                 if k % 20 == 0:
                     print('k = ', k)
                 # mytimer.logtime()
