@@ -41,8 +41,8 @@ class ODIPGDAttacker(BatchAttack):
         output_dim = 10 if dataset == 'cifar10' else 1000
         wd = uniform_l_inf_noise(batch_size, output_dim, tf.constant([1.]*self.batch_size), self.model.x_dtype)
 
-        # loss = CWLoss(self.model)  # 定义loss
-        loss = CrossEntropyLoss(self.model)
+        loss = CWLoss(self.model)  # 定义loss
+        # loss = CrossEntropyLoss(self.model)
         loss_odi = Vods(self.model, wd)
         # random init magnitude
         self.rand_init_eps_ph = tf.placeholder(self.model.x_dtype, (self.batch_size,))
@@ -160,10 +160,10 @@ class ODIPGDAttacker(BatchAttack):
                 self._session.run(self.update_xs_adv_step_odi)
 
             # pgd
-            mytimer = MyTimer()
+            # mytimer = MyTimer()
             for _ in range(self.iteration):  # 迭代K步
                 self._session.run(self.update_xs_adv_step)
-                mytimer.logtime()
+                # mytimer.logtime()
             res.append(self._session.run(self.xs_adv_model))  # 返回结果
             logits = self.model.logits(self.xs_adv_model)
             preds = tf.argmax(logits, 1)
