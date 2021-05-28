@@ -157,7 +157,8 @@ class ODIAutoPGDAttacker(BatchAttack):
         self.xlast = tf.Variable(self.xs_adv_var)
 
         self.fcnt = 0
-
+        self.k = 0
+        self.wlast = 0
 
         w = self.xs_adv_var + 0.75 * (self.xs_adv_next - self.xs_adv_var) + 0.25 * (self.xs_adv_var - self.xlast)
         # project(w)
@@ -168,32 +169,32 @@ class ODIAutoPGDAttacker(BatchAttack):
         update_xadv_op = self.xs_adv_var.assign(w)
         # self._session.run(op)  # 得到x_{k+1}
 
-        # if k in self.ws:  # 更新step_size
+        if k in self.ws:  # 更新step_size
 
-        #     # condition 1: how many cases since the last checkpoint wj−1 the update step has been successful in increasing f
-        #     cond1 = False
-        #     if fcnt < 0.75 * (k - wlast):
-        #         cond1 = True
+            # condition 1: how many cases since the last checkpoint wj−1 the update step has been successful in increasing f
+            cond1 = False
+            if self.fcnt < 0.75 * (self.k - self.wlast):
+                cond1 = True
 
-        #     # condition 2: the step size was not reduced at the last checkpoint and there has been no improvement in the best found objective value since the last checkpoint.
-        #     cond2 = False
-        #     if alpha_last == self.alpha_var and fmax_last == fmax:
-        #         cond2 = True
+            # condition 2: the step size was not reduced at the last checkpoint and there has been no improvement in the best found objective value since the last checkpoint.
+            cond2 = False
+            if alpha_last == self.alpha_var and fmax_last == fmax:
+                cond2 = True
 
-        #     if cond1 or cond2:
-        #         op = [self.alpha_var.assign(self.alpha_var / 2),
-        #                 self.xs_adv_var.assign(xmax)]  # 更新步长, 用x_max覆盖xs_adv
-        #         # self._session.run(op)
-        #         # op = self.xs_adv_var.assign(xmax) # 用x_max覆盖xs_adv
-        #         self._session.run(op)
+            if cond1 or cond2:
+                op = [self.alpha_var.assign(self.alpha_var / 2),
+                        self.xs_adv_var.assign(xmax)]  # 更新步长, 用x_max覆盖xs_adv
+                # self._session.run(op)
+                # op = self.xs_adv_var.assign(xmax) # 用x_max覆盖xs_adv
+                self._session.run(op)
 
-        #     op = [alpha_last.assign(self.alpha_var), fmax_last.assign(fmax)]
-        #     # self._session.run(op)
-        #     # op = fmax_last.assign(fmax)
-        #     self._session.run(op)
+            op = [alpha_last.assign(self.alpha_var), fmax_last.assign(fmax)]
+            # self._session.run(op)
+            # op = fmax_last.assign(fmax)
+            self._session.run(op)
 
-        #     fcnt = 0  # 复位
-        #     wlast = k  # 记录上次checkpoint的位置
+            fcnt = 0  # 复位
+            wlast = k  # 记录上次checkpoint的位置
 
         # newf = self._session.run(self.loss)
 
