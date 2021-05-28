@@ -80,7 +80,7 @@ class ODIAutoPGDAttacker(BatchAttack):
         self.alpha_ph_odi = tf.placeholder(self.model.x_dtype, (self.batch_size,))
         self.alpha_var_odi = tf.Variable(tf.zeros((self.batch_size,), dtype=self.model.x_dtype))
         # expand dim for easier broadcast operations
-        eps = tf.expand_dims(self.eps_var, 1)
+        self.eps = tf.expand_dims(self.eps_var, 1)
         alpha = tf.expand_dims(self.alpha_var, 1)
         alpha_odi = tf.expand_dims(self.alpha_var_odi, 1)
 
@@ -93,7 +93,7 @@ class ODIAutoPGDAttacker(BatchAttack):
         self.loss = loss(self.xs_adv_model, self.ys_var)  # 计算loss
         grad = tf.gradients(self.loss, self.xs_adv_var)[0]  # 得到对xs_adv的梯度
         # update the adversarial example
-        xs_lo, xs_hi = self.xs_var - eps, self.xs_var + eps
+        xs_lo, xs_hi = self.xs_var - self.eps, self.xs_var + self.eps
         grad_sign = tf.sign(grad)
         # clip by max l_inf magnitude of adversarial noise
         self.xs_adv_next = tf.clip_by_value(self.xs_adv_var + alpha * grad_sign, xs_lo, xs_hi)  # 计算新值
@@ -152,9 +152,70 @@ class ODIAutoPGDAttacker(BatchAttack):
         self.init_auto()
 
     def init_auto(self):
-        pass
-        # self.fmax = tf.Variable(tf.zeros(self.batch_size, ), dtype=tf.float32)
-        # self.xmax = tf.Variable(self.xs_adv_var)
+        self.fmax = tf.Variable(tf.zeros(self.batch_size, ), dtype=tf.float32)
+        self.xmax = tf.Variable(self.xs_adv_var)
+        self.xlast = tf.Variable(self.xs_adv_var)
+
+        self.fcnt = 0
+
+
+        w = self.xs_adv_var + 0.75 * (self.xs_adv_next - self.xs_adv_var) + 0.25 * (self.xs_adv_var - self.xlast)
+        # project(w)
+        w_lo, w_hi = w - self.eps, w + self.eps
+        w = tf.clip_by_value(w, w_lo, w_hi)
+        w = tf.clip_by_value(w, self.model.x_min, self.model.x_max)
+
+        update_xadv_op = self.xs_adv_var.assign(w)
+        # self._session.run(op)  # 得到x_{k+1}
+
+        # if k in self.ws:  # 更新step_size
+
+        #     # condition 1: how many cases since the last checkpoint wj−1 the update step has been successful in increasing f
+        #     cond1 = False
+        #     if fcnt < 0.75 * (k - wlast):
+        #         cond1 = True
+
+        #     # condition 2: the step size was not reduced at the last checkpoint and there has been no improvement in the best found objective value since the last checkpoint.
+        #     cond2 = False
+        #     if alpha_last == self.alpha_var and fmax_last == fmax:
+        #         cond2 = True
+
+        #     if cond1 or cond2:
+        #         op = [self.alpha_var.assign(self.alpha_var / 2),
+        #                 self.xs_adv_var.assign(xmax)]  # 更新步长, 用x_max覆盖xs_adv
+        #         # self._session.run(op)
+        #         # op = self.xs_adv_var.assign(xmax) # 用x_max覆盖xs_adv
+        #         self._session.run(op)
+
+        #     op = [alpha_last.assign(self.alpha_var), fmax_last.assign(fmax)]
+        #     # self._session.run(op)
+        #     # op = fmax_last.assign(fmax)
+        #     self._session.run(op)
+
+        #     fcnt = 0  # 复位
+        #     wlast = k  # 记录上次checkpoint的位置
+
+        # newf = self._session.run(self.loss)
+
+        def update_xmax_fmax():
+            self.fcnt += 1
+            return [self.fmax.assign(self.loss), self.xmax.assign(w)]
+
+        def dummy_f():
+            return [tf.cast(tf.no_op(), tf.float32), tf.cast(tf.no_op(), tf.float32)]
+
+        with tf.control_dependencies([update_xadv_op]):
+            self.update_xmax_fmax_step = tf.cond(tf.reduce_mean(self.loss) > tf.reduce_mean(self.fmax), update_xmax_fmax, dummy_f)
+
+        # print(type(fmax))
+        # if newf.mean() > self._session.run(fmax).mean():
+        #     # if newf.mean() > tf.reduce_mean(fmax):
+        #     op = [fmax.assign(newf), xmax.assign(w)]
+        #     # self._session.run(op)
+        #     # op = xmax.assign(w)
+        #     self._session.run(op)
+        #     fcnt += 1
+
 
     def config(self, **kwargs):
         if 'magnitude' in kwargs:
@@ -190,8 +251,8 @@ class ODIAutoPGDAttacker(BatchAttack):
             mytimer = MyTimer()
 
             # 初始化
-            fmax = tf.Variable(tf.zeros(self.batch_size, ), dtype=tf.float32)
-            xmax = tf.Variable(self.xs_adv_var)
+            # fmax = tf.Variable(tf.zeros(self.batch_size, ), dtype=tf.float32)
+            # xmax = tf.Variable(self.xs_adv_var)
             f0, x0, _ = self._session.run([self.loss, self.xs_adv_var, self.update_xs_adv_step])
             # x0 = self._session.run(self.xs_adv_var)
             # _ = self._session.run(self.update_xs_adv_step)
@@ -202,23 +263,23 @@ class ODIAutoPGDAttacker(BatchAttack):
             mytimer.logtime()
             fcnt = 0
             if f0.mean() >= f1.mean():
-                op = [fmax.assign(f0), xmax.assign(x0)]
+                op = [self.fmax.assign(f0), self.xmax.assign(x0)]
                 # self._session.run(op)
                 # op = xmax.assign(x0)
                 self._session.run(op)
             else:
-                op = [fmax.assign(f1), xmax.assign(x1)]
+                op = [self.fmax.assign(f1), self.xmax.assign(x1)]
                 # op = fmax.assign(f1)
                 # self._session.run(op)
                 # op = xmax.assign(x1)
                 self._session.run(op)
                 fcnt += 1
 
-            fmax_last = tf.Variable(fmax)
+            fmax_last = tf.Variable(self.fmax)
 
             xlast = tf.Variable(self.xs_adv_var)
             alpha_last = tf.Variable(self.alpha_var)
-            flast = tf.Variable(fmax)
+            flast = tf.Variable(self.fmax)
             op = [xlast.assign(x0), alpha_last.assign(self.alpha_var), flast.assign(f1)]
 
             self._session.run(op)
@@ -228,62 +289,8 @@ class ODIAutoPGDAttacker(BatchAttack):
             print(f"{i} in odi")
             for k in range(1, self.iteration):  # 迭代K-1步
                 # self._session.run(self.update_xs_adv_step)
-
-                eps = tf.expand_dims(self.eps_var, 1)
-
-                z = self.xs_adv_next  # 已经run过一次update_xs_adv_step
-                # project(z)
-                z_lo, z_hi = z - eps, z + eps
-                z = tf.clip_by_value(z, z_lo, z_hi)
-                z = tf.clip_by_value(z, self.model.x_min, self.model.x_max)
-
-                w = self.xs_adv_var + 0.75 * (z - self.xs_adv_var) + 0.25 * (self.xs_adv_var - xlast)
-                # project(w)
-                w_lo, w_hi = w - eps, w + eps
-                w = tf.clip_by_value(w, w_lo, w_hi)
-                w = tf.clip_by_value(w, self.model.x_min, self.model.x_max)
-
-                op = self.xs_adv_var.assign(w)
-                self._session.run(op)  # 得到x_{k+1}
-
-                if k in self.ws:  # 更新step_size
-
-                    # condition 1: how many cases since the last checkpoint wj−1 the update step has been successful in increasing f
-                    cond1 = False
-                    if fcnt < 0.75 * (k - wlast):
-                        cond1 = True
-
-                    # condition 2: the step size was not reduced at the last checkpoint and there has been no improvement in the best found objective value since the last checkpoint.
-                    cond2 = False
-                    if alpha_last == self.alpha_var and fmax_last == fmax:
-                        cond2 = True
-
-                    if cond1 or cond2:
-                        op = [self.alpha_var.assign(self.alpha_var / 2),
-                              self.xs_adv_var.assign(xmax)]  # 更新步长, 用x_max覆盖xs_adv
-                        # self._session.run(op)
-                        # op = self.xs_adv_var.assign(xmax) # 用x_max覆盖xs_adv
-                        self._session.run(op)
-
-                    op = [alpha_last.assign(self.alpha_var), fmax_last.assign(fmax)]
-                    # self._session.run(op)
-                    # op = fmax_last.assign(fmax)
-                    self._session.run(op)
-
-                    fcnt = 0  # 复位
-                    wlast = k  # 记录上次checkpoint的位置
-
-                newf = self._session.run(self.loss)
-
-                # print(type(fmax))
-                if newf.mean() > self._session.run(fmax).mean():
-                    # if newf.mean() > tf.reduce_mean(fmax):
-                    op = [fmax.assign(newf), xmax.assign(w)]
-                    # self._session.run(op)
-                    # op = xmax.assign(w)
-                    self._session.run(op)
-                    fcnt += 1
-
+                self._session.run(self.update_xmax_fmax_step)
+                
                 if k % 20 == 0:
                     print('k = ', k)
                 mytimer.logtime()
