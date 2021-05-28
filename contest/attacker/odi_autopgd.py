@@ -187,8 +187,8 @@ class ODIAutoPGDAttacker(BatchAttack):
 
         self.update_xadv_op = [self.xs_adv_var.assign(w), self.xlast.assign(self.xs_adv_var)]
 
-        alpha_notchange = tf.equal(self.alpha_last, self.alpha_var)
-        fmax_notchange = tf.equal(self.fmax_last, self.fmax)
+        alpha_notchange = tf.reduce_all(tf.equal(self.alpha_last, self.alpha_var))
+        fmax_notchange = tf.reduce_all(tf.equal(self.fmax_last, self.fmax))
 
         self.cond2 = tf.logical_and(alpha_notchange, fmax_notchange)
 
