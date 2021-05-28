@@ -183,54 +183,26 @@ class ODIAutoPGDAttacker(BatchAttack):
         w = tf.clip_by_value(w, self.model.x_min, self.model.x_max)
 
         update_xadv_op = self.xs_adv_var.assign(w)
-        # self._session.run(op)  # 得到x_{k+1}
+    
+        alpha_notchange = tf.equal(self.alpha_last, self.alpha_var)
+        fmax_notchange = tf.equal(self.fmax_last, self.fmax)
 
-        if k in self.ws:  # 更新step_size
+        self.cond2 = tf.logical_and(alpha_notchange, fmax_notchange)
 
-            # condition 1: how many cases since the last checkpoint wj−1 the update step has been successful in increasing f
-            # cond1 = False
-            # if self.fcnt < 0.75 * (self.k - self.wlast):
-            #     cond1 = True
+        def cond1_or_cond2_true():
+            op = [self.alpha_var.assign(self.alpha_var / 2),
+                    self.xs_adv_var.assign(self.xmax), self.alpha_last.assign(self.alpha_var),
+                    self.fmax_last.assgin(self.fmax)]
+            return op
 
-            # condition 2: the step size was not reduced at the last checkpoint and there has been no improvement in the best found objective value since the last checkpoint.
-            alpha_notchange = tf.equal(self.alpha_last, self.alpha_var)
-            fmax_notchange = tf.equal(self.fmax_last, self.fmax)
-            # cond2 = False
-            # if alpha_last == self.alpha_var and fmax_last == fmax:
-            #     cond2 = True
-            self.cond2 = tf.logical_and(alpha_notchange, fmax_notchange)
+        def cond1_or_cond2_false():
+            op = [self.alpha_var,
+                    self.xs_adv_var, self.alpha_last.assign(self.alpha_var),
+                    self.fmax_last.assgin(self.fmax)]
+            return op
 
-            def cond1_or_cond2_true():
-                op = [self.alpha_var.assign(self.alpha_var / 2),
-                      self.xs_adv_var.assign(self.xmax), self.alpha_last.assign(self.alpha_var),
-                      self.fmax_last.assgin(self.fmax)]
-                return op
-
-            def cond1_or_cond2_false():
-                op = [self.alpha_var,
-                      self.xs_adv_var, self.alpha_last.assign(self.alpha_var),
-                      self.fmax_last.assgin(self.fmax)]
-                return op
-
-            self.update_step_size = tf.cond(tf.logical_or(self.cond1, self.cond2),
-                                            cond1_or_cond2_true, cond1_or_cond2_false)
-
-            # if cond1 or cond2:
-            #     op = [self.alpha_var.assign(self.alpha_var / 2),
-            #           self.xs_adv_var.assign(xmax)]  # 更新步长, 用x_max覆盖xs_adv
-            #     # self._session.run(op)
-            #     # op = self.xs_adv_var.assign(xmax) # 用x_max覆盖xs_adv
-            #     self._session.run(op)
-
-            # op = [alpha_last.assign(self.alpha_var), fmax_last.assign(fmax)]
-            # # self._session.run(op)
-            # # op = fmax_last.assign(fmax)
-            # self._session.run(op)
-
-            # fcnt = 0  # 复位
-            # wlast = k  # 记录上次checkpoint的位置
-
-        # newf = self._session.run(self.loss)
+        self.update_step_size = tf.cond(tf.logical_or(self.cond1, self.cond2),
+                                        cond1_or_cond2_true, cond1_or_cond2_false)
 
         def update_xmax_fmax():
             self.fcnt += 1
@@ -242,15 +214,6 @@ class ODIAutoPGDAttacker(BatchAttack):
         with tf.control_dependencies([update_xadv_op]):
             self.update_xmax_fmax_step = tf.cond(tf.reduce_mean(
                 self.loss) > tf.reduce_mean(self.fmax), update_xmax_fmax, dummy_f)
-
-        # print(type(fmax))
-        # if newf.mean() > self._session.run(fmax).mean():
-        #     # if newf.mean() > tf.reduce_mean(fmax):
-        #     op = [fmax.assign(newf), xmax.assign(w)]
-        #     # self._session.run(op)
-        #     # op = xmax.assign(w)
-        #     self._session.run(op)
-        #     fcnt += 1
 
     def config(self, **kwargs):
         if 'magnitude' in kwargs:
@@ -298,27 +261,20 @@ class ODIAutoPGDAttacker(BatchAttack):
             mytimer.logtime()
             fcnt = 0
             if f0.mean() >= f1.mean():
-                # op = [self.fmax.assign(f0), self.xmax.assign(x0)]
-                # self._session.run(op)
-                # op = xmax.assign(x0)
                 self._session.run([self.update_fmax, self.update_xmax], feed_dict={self.fmax_ph: f0, self.xmax_ph: x0})
             else:
-                # op = [self.fmax.assign(f1), self.xmax.assign(x1)]
-                # op = fmax.assign(f1)
-                # self._session.run(op)
-                # op = xmax.assign(x1)
-                # self._session.run(op)
                 self._session.run([self.update_fmax, self.update_xmax], feed_dict={self.fmax_ph: f1, self.xmax_ph: x1})
                 fcnt += 1
 
             # fmax_last = tf.Variable(self.fmax)
 
             # self.xlast = tf.Variable(self.xs_adv_var)
-            alpha_last = tf.Variable(self.alpha_var)
-            flast = tf.Variable(self.fmax)
-            op = [self.xlast.assign(x0), alpha_last.assign(self.alpha_var), flast.assign(f1)]
+            # alpha_last = tf.Variable(self.alpha_var)
+            # flast = tf.Variable(self.fmax)
+            # op = [self.xlast.assign(x0), alpha_last.assign(self.alpha_var), flast.assign(f1)]
 
-            self._session.run(op)
+            # self._session.run(op)
+            self._session.run([self.update_xlast, self.update_alpha_last, self.update_flast], feed_dict={self.xlast_ph:x0, self.alpha_last_ph:self.alpha_var, self.flast_ph:f1})
             # wlast = 0
             mytimer.logtime()
             # print(type(fmax))
