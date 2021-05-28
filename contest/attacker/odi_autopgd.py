@@ -157,7 +157,7 @@ class ODIAutoPGDAttacker(BatchAttack):
         self.xlast_ph = tf.placeholder(self.model.x_dtype, self.xs_flatten_shape)
         self.alpha_last_ph = tf.placeholder(self.model.x_dtype, (self.batch_size,))
         self.flast_ph = tf.placeholder(self.model.x_dtype, (self.batch_size,))
-        self.cond1 = tf.placeholder(tf.bool)
+        self.cond1 = tf.placeholder(tf.bool, name="cond1")
 
         self.fmax = tf.Variable(tf.zeros(self.batch_size, ), dtype=tf.float32)
         self.xmax = tf.Variable(self.xs_adv_var)
@@ -285,11 +285,12 @@ class ODIAutoPGDAttacker(BatchAttack):
 
             # self._session.run(op)
             self._session.run([self.update_xlast, self.update_alpha_last, self.update_flast], feed_dict={
-                              self.xlast_ph: x0, self.alpha_last_ph: self.alpha_var, self.flast_ph: f1})
+                              self.xlast_ph: x0, self.alpha_last_ph: self._session.run(self.alpha_var), self.flast_ph: f1})
             # wlast = 0
             mytimer.logtime()
             # print(type(fmax))
             print(f"{i} in odi")
+            # print(f"{self._session.run(self.fmax_last.initializer)}")
             for k in range(1, self.iteration):  # 迭代K-1步
                 # self._session.run(self.update_xs_adv_step)
                 self._session.run(self.update_xadv_op)
