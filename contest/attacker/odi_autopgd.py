@@ -155,14 +155,20 @@ class ODIAutoPGDAttacker(BatchAttack):
         self.fmax_ph = tf.placeholder(self.model.x_dtype, (self.batch_size,))
         self.xmax_ph = get_xs_ph(self.model, self.batch_size)
         self.xlast_ph = get_xs_ph(self.model, self.batch_size)
+        self.alpha_last_ph = tf.placeholder(self.model.x_dtype, (self.batch_size,))
+        self.flast_ph = tf.placeholder(self.model.x_dtype, (self.batch_size,))
         
         self.fmax = tf.Variable(tf.zeros(self.batch_size, ), dtype=tf.float32)
         self.xmax = tf.Variable(self.xs_adv_var)
         self.xlast = tf.Variable(self.xs_adv_var)
+        self.alpha_last = tf.Variable(self.alpha_var)
+        self.flast = tf.Variable(tf.zeros(self.batch_size, ), dtype=tf.float32)
 
         self.update_fmax = self.fmax.assign(self.fmax_ph)
         self.update_xmax = self.xmax.assign(self.xmax_ph)
         self.update_xlast = self.xlast.assign(self.xlast_ph)
+        self.update_alpha_last = self.alpha_last.assign(self.alpha_last_ph)
+        self.update_flast = self.flast.assign(self.flast_ph)
 
         self.fcnt = 0
 
