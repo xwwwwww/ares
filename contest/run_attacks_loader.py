@@ -80,4 +80,7 @@ if __name__ == "__main__":
     parser.add_argument("--attacks", required=True)
     parser.add_argument("--output", required=True)
     args = parser.parse_args()
+    import pytorch_lightning as pl
+    pl.seed_everything(20210523)
+    tf.set_random_seed(20210523)
     main(args)

@@ -228,6 +228,11 @@ class ODIAutoPGDAttacker(BatchAttack):
             print(f"{i} in odi")
             for k in range(1, self.iteration):  # 迭代K-1步
                 # self._session.run(self.update_xs_adv_step)
+                logits = self.model.logits(self.xs_adv_model)
+                preds = tf.argmax(logits, 1)
+                preds = self._session.run(preds)
+                succ = (preds != ys).sum()
+                print('succ = ', succ)
 
                 eps = tf.expand_dims(self.eps_var, 1)
 
@@ -287,11 +292,7 @@ class ODIAutoPGDAttacker(BatchAttack):
                 if k % 20 == 0:
                     print('k = ', k)
 
-                # logits = self.model.logits(self.xs_adv_model)
-                # preds = tf.argmax(logits, 1)
-                # preds = self._session.run(preds)
-                # succ = (preds != ys).sum()
-                # print('succ = ', succ)
+                
                 mytimer.logtime()
 
             xs_adv = self._session.run(self.xs_adv_model).astype(np.float32)

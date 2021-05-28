@@ -179,13 +179,19 @@ class ODIAutoPGDAttacker(BatchAttack):
         self.k = 0
         self.wlast = 0
 
-        w = self.xs_adv_var + 0.75 * (self.xs_adv_next - self.xs_adv_var) + 0.25 * (self.xs_adv_var - self.xlast)
+        z = self.xs_adv_next  # 已经run过一次update_xs_adv_step
+                # project(z)
+        z_lo, z_hi = z - self.eps, z + self.eps
+        z = tf.clip_by_value(z, z_lo, z_hi)
+        z = tf.clip_by_value(z, self.model.x_min, self.model.x_max)
+
+        w = self.xs_adv_var + 0.75 * (z - self.xs_adv_var) + 0.25 * (self.xs_adv_var - self.xlast)
         # project(w)
         w_lo, w_hi = w - self.eps, w + self.eps
         w = tf.clip_by_value(w, w_lo, w_hi)
         w = tf.clip_by_value(w, self.model.x_min, self.model.x_max)
 
-        self.update_xadv_op = [self.xs_adv_var.assign(w), self.xlast.assign(self.xs_adv_var)]
+        self.update_xadv_op = [self.xs_adv_var.assign(w)]
 
         alpha_notchange = tf.reduce_all(tf.equal(self.alpha_last, self.alpha_var))
         fmax_notchange = tf.reduce_all(tf.equal(self.fmax_last, self.fmax))
@@ -296,7 +302,14 @@ class ODIAutoPGDAttacker(BatchAttack):
             # print(f"{self._session.run(self.fmax_last.initializer)}")
             for k in range(1, self.iteration):  # 迭代K-1步
                 # self._session.run(self.update_xs_adv_step)
+                logits = self.model.logits(self.xs_adv_model)
+                preds = tf.argmax(logits, 1)
+                preds = self._session.run(preds)
+                succ = (preds != ys).sum()
+                print('succ = ', succ)
+
                 self._session.run(self.update_xadv_op)
+                # self._session.run(self.xlast.assign(self.xs_adv_var))
 
                 if k in self.ws:
                     self.k = k
@@ -309,11 +322,7 @@ class ODIAutoPGDAttacker(BatchAttack):
 
                 self._session.run([self.update_xmax_fmax_step, self.update_fcnt_step])
 
-                logits = self.model.logits(self.xs_adv_model)
-                preds = tf.argmax(logits, 1)
-                preds = self._session.run(preds)
-                succ = (preds != ys).sum()
-                print('succ = ', succ)
+                
 
                 if k % 20 == 0:
                     print('k = ', k)
