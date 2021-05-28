@@ -4,6 +4,7 @@ import os
 import subprocess
 import sys
 import pytorch_lightning as pl
+import tensorflow as tf
 import json
 import numpy as np
 
@@ -100,5 +101,6 @@ if __name__ == "__main__":
         default=False,
     )
     pl.seed_everything(20210523)
+    tf.set_random_seed(20210523)
     args = parser.parse_args()
     main(args)
