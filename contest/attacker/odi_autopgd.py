@@ -311,7 +311,7 @@ class ODIAutoPGDAttacker(BatchAttack):
 
                 if k % 20 == 0:
                     print('k = ', k)
-                mytimer.logtime()
+                # mytimer.logtime()
 
             xs_adv = self._session.run(self.xs_adv_model).astype(np.float32)
             res.append(xs_adv)  # 返回结果
