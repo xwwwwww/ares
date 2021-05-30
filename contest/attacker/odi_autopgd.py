@@ -93,10 +93,10 @@ class ODIAutoPGDAttacker(BatchAttack):
         self.loss = loss(self.xs_adv_model, self.ys_var)  # 计算loss
         grad = tf.gradients(self.loss, self.xs_adv_var)[0]  # 得到对xs_adv的梯度
         # update the adversarial example
-        xs_lo, xs_hi = self.xs_var - self.eps, self.xs_var + self.eps
+        self.xs_lo, self.xs_hi = self.xs_var - self.eps, self.xs_var + self.eps
         grad_sign = tf.sign(grad)
         # clip by max l_inf magnitude of adversarial noise
-        self.xs_adv_next = tf.clip_by_value(self.xs_adv_var + alpha * grad_sign, xs_lo, xs_hi)  # 计算新值
+        self.xs_adv_next = tf.clip_by_value(self.xs_adv_var + alpha * grad_sign, self.xs_lo, self.xs_hi)  # 计算新值
         # clip by (x_min, x_max)
         self.xs_adv_next = tf.clip_by_value(self.xs_adv_next, self.model.x_min, self.model.x_max)
 
@@ -106,7 +106,7 @@ class ODIAutoPGDAttacker(BatchAttack):
         # update the adversarial example
         grad_sign_odi = tf.sign(grad_odi)
         # clip by max l_inf magnitude of adversarial noise
-        self.xs_adv_next_odi = tf.clip_by_value(self.xs_adv_var + alpha_odi * grad_sign_odi, xs_lo, xs_hi)  # 计算新值
+        self.xs_adv_next_odi = tf.clip_by_value(self.xs_adv_var + alpha_odi * grad_sign_odi, self.xs_lo, self.xs_hi)  # 计算新值
         # clip by (x_min, x_max)
         self.xs_adv_next_odi = tf.clip_by_value(self.xs_adv_next_odi, self.model.x_min, self.model.x_max)
 
@@ -164,6 +164,7 @@ class ODIAutoPGDAttacker(BatchAttack):
         self.fmax = tf.Variable(tf.zeros(self.batch_size, ), dtype=tf.float32)
         self.xmax = tf.Variable(self.xs_adv_var)
         self.xlast = tf.Variable(self.xs_adv_var)
+        self.xlast_temp = tf.Variable(self.xs_adv_var)
         self.alpha_last = tf.Variable(self.alpha_var)
         self.flast = tf.Variable(tf.zeros(self.batch_size, ), dtype=tf.float32)
         self.fmax_last = tf.Variable(tf.zeros(self.batch_size, ), dtype=tf.float32)
@@ -181,17 +182,18 @@ class ODIAutoPGDAttacker(BatchAttack):
 
         z = self.xs_adv_next  # 已经run过一次update_xs_adv_step
                 # project(z)
-        z_lo, z_hi = z - self.eps, z + self.eps
-        z = tf.clip_by_value(z, z_lo, z_hi)
+        # z_lo, z_hi = z - self.eps, z + self.eps
+        z = tf.clip_by_value(z, self.xs_lo, self.xs_hi)
         z = tf.clip_by_value(z, self.model.x_min, self.model.x_max)
 
         w = self.xs_adv_var + 0.75 * (z - self.xs_adv_var) + 0.25 * (self.xs_adv_var - self.xlast)
         # project(w)
-        w_lo, w_hi = w - self.eps, w + self.eps
-        w = tf.clip_by_value(w, w_lo, w_hi)
+        # w_lo, w_hi = w - self.eps, w + self.eps
+        w = tf.clip_by_value(w, self.xs_lo, self.xs_hi)
         w = tf.clip_by_value(w, self.model.x_min, self.model.x_max)
 
-        self.update_xadv_op = [self.xs_adv_var.assign(w)]
+        self.update_xadv_op = [self.xs_adv_var.assign(w), self.xlast_temp.assign(self.xs_adv_var)]
+        self.copy_xlast_step = self.xlast.assign(self.xlast_temp)
 
         alpha_notchange = tf.reduce_all(tf.equal(self.alpha_last, self.alpha_var))
         fmax_notchange = tf.reduce_all(tf.equal(self.fmax_last, self.fmax))
@@ -265,7 +267,7 @@ class ODIAutoPGDAttacker(BatchAttack):
 
             # 复原alpha
             self._session.run(self.reset_alpha_step)
-            mytimer = MyTimer()
+            # mytimer = MyTimer()
 
             # 初始化
             # fmax = tf.Variable(tf.zeros(self.batch_size, ), dtype=tf.float32)
@@ -273,11 +275,11 @@ class ODIAutoPGDAttacker(BatchAttack):
             f0, x0, _ = self._session.run([self.loss, self.xs_adv_var, self.update_xs_adv_step])
             # x0 = self._session.run(self.xs_adv_var)
             # _ = self._session.run(self.update_xs_adv_step)
-            mytimer.logtime()
+            # mytimer.logtime()
             # self._session.run(self.update_xs_adv_step)
             f1 = self._session.run(self.loss)
             x1 = self._session.run(self.xs_adv_var)
-            mytimer.logtime()
+            # mytimer.logtime()
             # fcnt = 0
             if f0.mean() >= f1.mean():
                 self._session.run([self.update_fmax, self.update_xmax], feed_dict={self.fmax_ph: f0, self.xmax_ph: x0})
@@ -296,20 +298,20 @@ class ODIAutoPGDAttacker(BatchAttack):
             self._session.run([self.update_xlast, self.update_alpha_last, self.update_flast, self.update_fmax_last], feed_dict={
                               self.xlast_ph: x0, self.alpha_last_ph: self._session.run(self.alpha_var), self.flast_ph: f1, self.fmax_last_ph: self._session.run(self.fmax)})
             # wlast = 0
-            mytimer.logtime()
+            # mytimer.logtime()
             # print(type(fmax))
-            print(f"{i} in odi")
+            # print(f"{i} in odi")
             # print(f"{self._session.run(self.fmax_last.initializer)}")
             for k in range(1, self.iteration):  # 迭代K-1步
                 # self._session.run(self.update_xs_adv_step)
-                logits = self.model.logits(self.xs_adv_model)
-                preds = tf.argmax(logits, 1)
-                preds = self._session.run(preds)
-                succ = (preds != ys).sum()
-                print('succ = ', succ)
+                # logits = self.model.logits(self.xs_adv_model)
+                # preds = tf.argmax(logits, 1)
+                # preds = self._session.run(preds)
+                # succ = (preds != ys).sum()
+                # print('succ = ', succ)
 
                 self._session.run(self.update_xadv_op)
-                # self._session.run(self.xlast.assign(self.xs_adv_var))
+                self._session.run(self.copy_xlast_step)
 
                 if k in self.ws:
                     self.k = k
@@ -324,8 +326,8 @@ class ODIAutoPGDAttacker(BatchAttack):
 
                 
 
-                if k % 20 == 0:
-                    print('k = ', k)
+                # if k % 20 == 0:
+                #     print('k = ', k)
                 # mytimer.logtime()
 
             xs_adv = self._session.run(self.xs_adv_model).astype(np.float32)
@@ -336,7 +338,7 @@ class ODIAutoPGDAttacker(BatchAttack):
             preds = tf.argmax(logits, 1)
             preds = self._session.run(preds)
             succ = (preds != ys).sum()
-            print('succ = ', succ)
+            # print('succ = ', succ)
             # loss = self._session.run(self.loss).mean().item()
             # print(loss)
             # if loss > loss_max:
